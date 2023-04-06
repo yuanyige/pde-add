@@ -1,15 +1,16 @@
-CUDA_VISIBLE_DEVICES=0 \
+CUDA_VISIBLE_DEVICES=6 \
 python train.py \
 --data cifar10 \
 --protocol standard \
 --desc standard \
---backbone wideresnet-16-4 \
---epoch 200 \
---save-dir exps_cifar10/adv \
+--backbone resnet-18 \
+--epoch 400 \
+--save-dir exps_cifar10/baselines \
 --npc-train all \
---lrC 0.05 \
+--lrC 0.01 \
 --schedule cosanlr \
---aug-train none \
---atk-train linf-pgd \
+--aug-train augmix \
+--atk-train none \
+--atk-eval none \
 --ensemble-iter-eval 1
 

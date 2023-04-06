@@ -37,7 +37,7 @@ def get_logger_name(ckpt_path, load_ckpt, task, severity=None, threat=None):
         postfix = ""
     
     if task =='ood':
-        name = os.path.join(save_dir, 'test-{}-s{}{}.log'.format(task, severity, postfix))
+        name = os.path.join(save_dir, 'test-{}{}.log'.format(task, postfix))
     elif task == 'adv':
         name = os.path.join(save_dir, 'test-{}-{}{}.log'.format(task, threat, postfix))
     else:
