@@ -47,7 +47,7 @@ def run_ladiff(model):
 
         # # test for ood
         eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-        eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
+        #eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
         
         # acc_corrs=[]
         # for j in range(5):
@@ -78,8 +78,8 @@ def run_ladiff(model):
         
         writer_wodiff.add_scalar('evalood/loss', eval_ood_wodiff_metric['eval_loss'], epoch)
         writer_wodiff.add_scalar('evalood/acc', eval_ood_wodiff_metric['eval_acc'], epoch)
-        writer_endiff.add_scalar('evalood/loss', eval_ood_endiff_metric['eval_loss'], epoch)
-        writer_endiff.add_scalar('evalood/acc', eval_ood_endiff_metric['eval_acc'], epoch)
+        #writer_endiff.add_scalar('evalood/loss', eval_ood_endiff_metric['eval_loss'], epoch)
+        #writer_endiff.add_scalar('evalood/acc', eval_ood_endiff_metric['eval_acc'], epoch)
 
         # save csv
         metric = pd.concat(
@@ -87,7 +87,7 @@ def run_ladiff(model):
             pd.DataFrame(eval_nat_wodiff_metric,index=[epoch]),
             #pd.DataFrame(eval_nat_endiff_metric,index=[epoch]),
             pd.DataFrame(eval_ood_wodiff_metric,index=[epoch]),
-            pd.DataFrame(eval_ood_endiff_metric,index=[epoch])
+            #pd.DataFrame(eval_ood_endiff_metric,index=[epoch])
             ], axis=1)
         total_metrics = pd.concat([total_metrics, metric], ignore_index=True)
         total_metrics.to_csv(os.path.join(args.save_dir, 'stats.csv'), index=True)
@@ -104,20 +104,20 @@ def run_ladiff(model):
         logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))
         
-        logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
-                    eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
-        # logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-        #     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss']))
+        # logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+        #             eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
+        #             eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
+        logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+            eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss']))
         
 
         # save model
         wodiff_saver.apply(eval_ood_wodiff_metric['eval_acc'], epoch, 
                            model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
                            save_path=os.path.join(args.save_dir,'model-best-wodiff.pt'))
-        endiff_saver.apply(eval_ood_endiff_metric['eval_acc'], epoch, 
-                           model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
-                           save_path=os.path.join(args.save_dir,'model-best-endiff.pt'))
+        # endiff_saver.apply(eval_ood_endiff_metric['eval_acc'], epoch, 
+        #                    model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
+        #                    save_path=os.path.join(args.save_dir,'model-best-endiff.pt'))
         if (epoch!=0) and (epoch % args.save_freq==0):
             save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff, 
                        save_path=os.path.join(args.save_dir,'model-e{}.pt'.format(epoch)))

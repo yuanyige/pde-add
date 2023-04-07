@@ -9,7 +9,6 @@ from core.context import ctx_noparamgrad_and_eval
 nll_loss = nn.GaussianNLLLoss()
 
 
-
 def train_ladiff_augdiff(dataloader_train, model,
                  optimizerDiff, optimizerC, augmentor=None, attacker=None,
                  device=None, visualize=False, epoch=None):
@@ -53,19 +52,25 @@ def train_ladiff_augdiff(dataloader_train, model,
         optimizerDiff.step()
         
 
-        # x_aug = augmentor.apply(x, (True*visualize) if batch_index==0 else (False*visualize))
-        out_aug = model(x_aug, use_diffusion = True)
-        out_fake = model(x, use_diffusion = True)
+        # out_aug = model(x_aug, use_diffusion = True)
+        # out = model(x, use_diffusion = True)
+        # optimizerC.zero_grad()
+        # lossC =  F.nll_loss(out_aug, y) + F.nll_loss(out, y)
+        # lossC.backward()
+        # optimizerC.step()
+
+        x_all = torch.cat((x, x_aug), dim=0)
+        y_all = torch.cat((y, y), dim=0)
+        out = model(x_all, use_diffusion = True)
         optimizerC.zero_grad()
-        #lossC = F.cross_entropy(out_fake, y) + F.cross_entropy(out_aug, y)
-        lossC =  F.nll_loss(out_aug, y) + F.nll_loss(out_fake, y)
+        lossC =  F.nll_loss(out, y_all) 
         lossC.backward()
         optimizerC.step()
 
+
         batch_metric["train_loss_nll"] = lossDiff.data.item()
         batch_metric["train_loss_cla"] = lossC.data.item()
-        #batch_metric["train_acc"] = (torch.softmax(out_fake.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
-        batch_metric["train_acc"] = (out_fake.data.argmax(dim=1) == y.data).sum().data.item()
+        batch_metric["train_acc"] = (out.data.argmax(dim=1) == y.data).sum().data.item()
         batch_metric["scales1"] =  model.scales[0]
         batch_metric["scales2"] =  model.scales[1]
         batch_metric["scales3"] =  model.scales[2]
@@ -86,7 +91,7 @@ def train_ladiff_augdiff(dataloader_train, model,
 
 
 def train_ladiff_oridiff_claug(dataloader_train, model,
-                 optimizerDiff, optimizerC, augmentor=None, 
+                 optimizerDiff, optimizerC, augmentor=None, attacker=None,
                  device=None, visualize=False, epoch=None):
 
     print("ladiff_oridiff_claug..")
@@ -121,7 +126,7 @@ def train_ladiff_oridiff_claug(dataloader_train, model,
         optimizerDiff.step()
 
         x_aug = augmentor.apply(x, (True*visualize) if batch_index==0 else (False*visualize))
-        out_aug = model(x_aug, use_diffusion = True)
+        out_aug = model(x_aug, use_diffusion = False)
         out_fake = model(x, use_diffusion = True)
         optimizerC.zero_grad()
         #lossC = F.cross_entropy(out_fake, y) + F.cross_entropy(out_aug, y)
@@ -153,7 +158,7 @@ def train_ladiff_oridiff_claug(dataloader_train, model,
 
 
 def train_ladiff_oridiff_clori(dataloader_train, model,
-                 optimizerDiff, optimizerC, augmentor=None, 
+                 optimizerDiff, optimizerC, augmentor=None, attacker=None,
                  device=None, visualize=False, epoch=None):
         
     print("ladiff_oridiff_clori..")

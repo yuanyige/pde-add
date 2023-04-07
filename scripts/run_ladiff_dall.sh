@@ -1,14 +1,14 @@
-CUDA_VISIBLE_DEVICES=4 \
+CUDA_VISIBLE_DEVICES=3 \
 python train.py \
 --data cifar10 \
 --seed 3407 \
 --protocol ladiff-augdiff \
---desc none \
+--desc catori \
 --backbone resnet-18 \
---epoch 150 \
+--epoch 200 \
 --save-dir exps_cifar10/dall_rn18 \
 --npc-train all \
---lrC 0.1 \
+--lrC 0.05 \
 --lrDiff 0.1 \
 --schedule cosanlr \
 --aug-train augmix \
