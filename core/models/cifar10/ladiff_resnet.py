@@ -93,7 +93,7 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, use_diffusion=True):
+    def net(self, x, use_diffusion=True):
         
         self.mus = []
         self.sigmas = [] 
@@ -105,30 +105,57 @@ class ResNet(nn.Module):
         self.sigmas.append(out[2])
         if use_diffusion:
             self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
         out = self.layer2(out)
         self.mus.append(out[0])
         self.sigmas.append(out[2])
         if use_diffusion:
             self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
         out = self.layer3(out)
         self.mus.append(out[0])
         self.sigmas.append(out[2])
         if use_diffusion:
             self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
         out = self.layer4(out)
         self.mus.append(out[0])
         self.sigmas.append(out[2])
         if use_diffusion:
             self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
         out = out[0]
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
 
+        return out
+    
+    def forward(self, x, use_diffusion=True):
+        if self.training:
+            #print('training........')
+            out = self.net(x, use_diffusion=use_diffusion)
+            out = F.log_softmax(out, dim=1)
+        else:
+            #print('evaling........')
+            if use_diffusion:
+                proba = 0 
+                for k in range(10):  
+                    out = self.net(x, use_diffusion=True)
+                    p = F.softmax(out, dim=1)
+                    proba = proba + p
+                out = ((proba/10)+1e-20).log() # next nll
+            else:
+                out = self.net(x, use_diffusion=False)
+                out = F.log_softmax(out, dim=1)
         return out
 
 

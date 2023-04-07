@@ -114,11 +114,42 @@ class DataAugmentor():
 
 
 
-all_ood=['snow','fog','frost','glass_blur',
-        'defocus_blur','gaussian_blur','motion_blur','zoom_blur',
-        'gaussian_noise','shot_noise','speckle_noise','impulse_noise',
-        'brightness','contrast','elastic_transform',
-        'pixelate','jpeg_compression','spatter','saturate']
+# all_ood=['snow','fog','frost','glass_blur',
+#         'defocus_blur','gaussian_blur','motion_blur','zoom_blur',
+#         'gaussian_noise','shot_noise','speckle_noise','impulse_noise',
+#         'brightness','contrast','elastic_transform',
+#         'pixelate','jpeg_compression','spatter','saturate']
+corruptions = ['snow', 'fog', 'frost', 'glass_blur', 'defocus_blur', 'motion_blur','zoom_blur', 
+               'gaussian_noise', 'shot_noise', 'impulse_noise',
+               'pixelate', 'brightness', 'contrast','jpeg_compression', 'elastic_transform']
+
+from robustbench.data import load_cifar10c, load_cifar10
+
+def get_cifar10_numpy():
+    x_clean, y_clean = load_cifar10(n_examples=10000, data_dir='./datasets/cifar10')
+    x_corrs = []
+    y_corrs = []
+    x_corrs.append(x_clean)
+    y_corrs.append(y_clean)
+    for i in range(1, 6):
+        x_corr = []
+        y_corr = []
+        for j, corr in enumerate(corruptions):
+            x_, y_ = load_cifar10c(n_examples=10000, data_dir='./datasets/', severity=i, corruptions=(corr,))
+            x_corr.append(x_)
+            y_corr.append(y_)
+
+        x_corrs.append(x_corr)
+        y_corrs.append(y_corr)
+
+    x_corrs_fast = []
+    y_corrs_fast = []
+    for i in range(1, 6):
+        x_, y_ = load_cifar10c(n_examples=1000, data_dir='./datasets/', severity=i, shuffle=True)
+        x_corrs_fast.append(x_)
+        y_corrs_fast.append(y_)
+
+    return x_corrs, y_corrs, x_corrs_fast, y_corrs_fast
 
 
 class CIFARC(datasets.VisionDataset):
@@ -146,7 +177,7 @@ class CIFARC(datasets.VisionDataset):
             self.data = []
             self.targets = []
 
-            for n in all_ood:   
+            for n in corruptions:   
                 data_path = os.path.join(root, n + '.npy')
                 target_path = os.path.join(root, 'labels.npy')
                 

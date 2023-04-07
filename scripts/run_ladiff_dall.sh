@@ -1,18 +1,18 @@
-CUDA_VISIBLE_DEVICES=0 \
+CUDA_VISIBLE_DEVICES=3 \
 python train.py \
 --data cifar10 \
 --seed 3407 \
 --protocol ladiff-augdiff \
---desc none \
+--desc catori \
 --backbone resnet-18 \
---epoch 400 \
+--epoch 200 \
 --save-dir exps_cifar10/dall_rn18 \
 --npc-train all \
---lrC 0.005 \
+--lrC 0.05 \
 --lrDiff 0.1 \
 --schedule cosanlr \
---aug-train augmix-7-6 \
+--aug-train augmix \
 --atk-train none \
---severity-eval 3 \
---ensemble-iter-eval 3
+--atk-eval none \
+--severity-eval 3 
 
