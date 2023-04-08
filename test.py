@@ -14,7 +14,7 @@ with open(os.path.join(args_test.ckpt_path,'train/args.txt'), 'r') as f:
     old = json.load(f)
     args_test.__dict__ = dict(vars(args_test), **old)
 
-#set_seed(args_test.seed)
+set_seed(args_test.seed)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = create_model(args_test.data, args_test.backbone, args_test.protocol)
 model = model.to(device)
@@ -27,7 +27,9 @@ del checkpoint
 
 x_corrs, y_corrs, _, _ = get_cifar10_numpy()
 logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
-logger.info("not use diffusion..")
-final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
+
 logger.info("use diffusion..")
 final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
+
+logger.info("not use diffusion..")
+final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)

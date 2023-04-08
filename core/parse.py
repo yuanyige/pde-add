@@ -24,7 +24,7 @@ def parser_train():
 
     # augmentation
     parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
-    parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=3, help='Data augmentation severity for evaluating')
+    parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=5, help='Data augmentation severity for evaluating')
 
 
     # attack
@@ -48,7 +48,7 @@ def parser_train():
     parser.add_argument('--optimizerC', type=str, default='sgd', help='Choice for optimizerC.')
     parser.add_argument('--lrC', type=float, default=0.01, help='Learning rate for optimizer.')
     parser.add_argument('--weight-decay', type=float, default=5e-4, help='Optimizer (SGD) weight decay.')
-    parser.add_argument('--scheduler', choices=['cosanlr','mslr',"none"], default='cosanlr', help='Type of scheduler.')
+    parser.add_argument('--scheduler', choices=['cosanlr', 'mslr', 'piecewise', "none"], default='cosanlr', help='Type of scheduler.')
     parser.add_argument('--warm', type=int, default=0)
 
     # Diff optimizer
