@@ -7,9 +7,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.models import create_model
-from core.trainfn import train_standard, train_ladiff #train_ladiff_oridiff_clori, train_ladiff_oridiff_claug, train_ladiff_augdiff
-#from core.trainfn_augdiff import train_ladiff
-from core.testfn import test#, test_ensemble
+from core.trainfn import train_standard, train_ladiff
+from core.testfn import test
 from core.parse import parser_train
 from core.data import DataAugmentor, load_data, load_cifar_c
 from core.utils import BestSaver, get_logger, set_seed, format_time, save_model, get_desc
