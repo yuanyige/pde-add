@@ -68,8 +68,9 @@ def train_ladiff_augdiff(dataloader_train, model,
         x_all = torch.cat((x, x_aug), dim=0)
         y_all = torch.cat((y, y), dim=0)
         out = model(x_all, use_diffusion = True)
+        out_aug = model(x_aug, use_diffusion = False)
         optimizerC.zero_grad()
-        lossC =  F.nll_loss(out, y_all) 
+        lossC =  F.nll_loss(out, y_all) + F.nll_loss(out_aug, y) 
         lossC.backward()
         optimizerC.step()
 
