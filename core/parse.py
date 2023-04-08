@@ -48,7 +48,7 @@ def parser_train():
     parser.add_argument('--optimizerC', type=str, default='sgd', help='Choice for optimizerC.')
     parser.add_argument('--lrC', type=float, default=0.01, help='Learning rate for optimizer.')
     parser.add_argument('--weight-decay', type=float, default=5e-4, help='Optimizer (SGD) weight decay.')
-    parser.add_argument('--scheduler', choices=['cosanlr','mslr',"none"], default='cosanlr', help='Type of scheduler.')
+    parser.add_argument('--scheduler', choices=['cosanlr', 'mslr', 'piecewise', "none"], default='cosanlr', help='Type of scheduler.')
     parser.add_argument('--warm', type=int, default=0)
 
     # Diff optimizer

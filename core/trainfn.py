@@ -10,7 +10,8 @@ nll_loss = nn.GaussianNLLLoss()
 
 
 def train_ladiff_augdiff(dataloader_train, model,
-                 optimizerDiff, optimizerC, augmentor=None, attacker=None,
+                 optimizerDiff, optimizerC, scheduler_pack,
+                 augmentor=None, attacker=None,
                  device=None, visualize=False, epoch=None):
 
     print("ladiff_augdiff..")
@@ -20,7 +21,12 @@ def train_ladiff_augdiff(dataloader_train, model,
     model.train()
     
 
-    for x, y in dataloader_train:
+    for i, (x, y) in enumerate(dataloader_train):
+
+        if scheduler_pack[0] == 'piecewise':
+            lr = scheduler_pack[1](epoch - 1 + (i + 1) / len(dataloader_train))  # epoch - 1 since the 0th epoch is skipped
+            optimizerC.param_groups[0].update(lr=lr)
+    
         if_visualize = (True*visualize) if batch_index==0 else (False*visualize)
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)
