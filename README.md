@@ -3,8 +3,12 @@
 ---
 ### 如何训练与测试
 ```
-bash ./scripts/run_ladiff_dall.sh    # 需要调的参数都在下面了
+bash ./scripts/run_ladiff_dall.sh    
 ```
+
+需要调的参数都在下面了，正常来说 train 完了会自动 test
+
+如需手动指定 checkpoint 进行测试，代码如下
 
 ```
 bash ./scripts/run_test.sh    # 需要更改里面的 --ckpt_path
@@ -18,13 +22,11 @@ bash ./scripts/run_test.sh    # 需要更改里面的 --ckpt_path
   - 主实验准备在 preresnet-18  or resnet-18 上跑，谁好选谁
   - 之后也要做 wideresnet 的补充实验
 - epoch
-  - 400 for now 
+  - 200 for now 
 - lrC
-  - 0.008 for now 
-  - 分类器的lr，resnet18上，目前为止 lr=0.008 和 lr=0.005 比 0.01 好很多
+  - 0.05 for now 
 - lrDiff
   - 0.1 for now
-  - 没有调过
 - schedule
   - cosanlr for now
   - 只是分类器的 scheduler，diffusion 部分没有设置 scheduler
@@ -40,11 +42,8 @@ bash ./scripts/run_test.sh    # 需要更改里面的 --ckpt_path
   - 若 severity = 5 则平均 acc=79 是 sota
 
 - 我目前跑完的结果只能做到：
-  - severity = 0 时 acc=85.36
-  - severity = 5 时 acc=77.85
----
-### 我这边正在进行的实验
-![results for now](./results_for_now.png)
+  - severity = 0 时 acc=86.80
+  - severity = 5 时 acc=78.05
 
 ---
 ### I Love U
