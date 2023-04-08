@@ -64,21 +64,14 @@ def clean_accuracy(model: torch.nn.Module,
     return acc.item() / x.shape[0]
 
 
-# def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, logger):
-#     model.eval()
-#     res = np.zeros((5, 15))
-#     for i in range(1, 6):
-#         for j, c in enumerate(corruptions):
-#             res[i-1, j] = clean_accuracy(model, use_diffusion, x_corrs[i][j].to(list(model.parameters())[0].device), y_corrs[i][j].to(list(model.parameters())[0].device))
-#             print(c, i, res[i-1, j])
-
-#     frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corruptions)
-#     frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
-#     frame['avg'] = frame[list(range(1,6))].mean(axis=1)
-#     logger.info(frame)
 
 def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, logger, n_runs=2):
     model.eval()
+    clean_acc=np.zeros((1, n_runs))
+    for k in range(n_runs):
+        clean_acc[0, k] = clean_accuracy(model, use_diffusion, x_corrs[0].to(list(model.parameters())[0].device), y_corrs[0].to(list(model.parameters())[0].device))
+    logger.info("Clean accuracy: {:.2%}+-{:.2%} ".format(clean_acc.mean(),clean_acc.std()))
+
     res = np.zeros((5, 15, n_runs))
     for i in range(1, 6):
         for j, c in enumerate(corruptions):
@@ -94,6 +87,21 @@ def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, logger,
     frame['avg'] = [f"{np.mean(mean_acc[:, i]):.2%}+-{np.mean(std_acc[:, i]):.2%}" for i in range(15)] + [f"{np.mean(mean_acc):.2%}+-{np.mean(std_acc):.2%}"]
     logger.info(frame)
     return frame
+
+
+
+# def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, logger):
+#     model.eval()
+#     res = np.zeros((5, 15))
+#     for i in range(1, 6):
+#         for j, c in enumerate(corruptions):
+#             res[i-1, j] = clean_accuracy(model, use_diffusion, x_corrs[i][j].to(list(model.parameters())[0].device), y_corrs[i][j].to(list(model.parameters())[0].device))
+#             print(c, i, res[i-1, j])
+
+#     frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corruptions)
+#     frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+#     frame['avg'] = frame[list(range(1,6))].mean(axis=1)
+#     logger.info(frame)
 
 
 # def test_ensemble(dataloader_test, model, ensemble_iter=10, augmentor=None, attacker=None, device=None):

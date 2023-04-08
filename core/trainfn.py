@@ -70,7 +70,7 @@ def train_ladiff_augdiff(dataloader_train, model,
 
         batch_metric["train_loss_nll"] = lossDiff.data.item()
         batch_metric["train_loss_cla"] = lossC.data.item()
-        batch_metric["train_acc"] = (out.data.argmax(dim=1) == y.data).sum().data.item()
+        batch_metric["train_acc"] = (out.data.argmax(dim=1) == y_all.data).sum().data.item()
         batch_metric["scales1"] =  model.scales[0]
         batch_metric["scales2"] =  model.scales[1]
         batch_metric["scales3"] =  model.scales[2]
@@ -83,7 +83,7 @@ def train_ladiff_augdiff(dataloader_train, model,
     return dict(metrics.agg({
             "train_loss_nll":"mean",
             "train_loss_cla":"mean",
-            "train_acc":lambda x:100*sum(x)/len(dataloader_train.dataset),
+            "train_acc":lambda x:100*sum(x)/(2*len(dataloader_train.dataset)),
             "scales1":"mean","scales2":"mean","scales3":"mean","scales4":"mean"}))
 
 

@@ -24,7 +24,7 @@ def parser_train():
 
     # augmentation
     parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
-    parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=3, help='Data augmentation severity for evaluating')
+    parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=5, help='Data augmentation severity for evaluating')
 
 
     # attack

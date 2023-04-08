@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=3 \
+CUDA_VISIBLE_DEVICES=4 \
 python train.py \
 --data cifar10 \
 --seed 3407 \
