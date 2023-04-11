@@ -64,7 +64,7 @@ def parser_test():
     parser.add_argument('--ckpt_path', type=str)
     parser.add_argument('--main_task', type=str, choices=["ood","adv"])
     parser.add_argument('--severity',  type=int, choices=[0,1,2,3,4,5], help='Data augmentation severity for testing')
-    parser.add_argument('--threat',  type=str, choices=['linf','l2'])
+    parser.add_argument('--threat',  type=str, choices=['Linf','L2'])
     parser.add_argument('--load_ckpt', type=str)
     args = parser.parse_args()
     return args

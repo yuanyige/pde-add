@@ -3,7 +3,7 @@ import json
 import torch
 from core.utils import set_seed
 from core.models import create_model
-from core.testfn import final_corr_eval
+from core.testfn import final_corr_eval, run_final_test_autoattack
 from core.parse import parser_test
 from core.utils import set_seed, get_logger, get_logger_name
 from core.data import corruptions, get_cifar10_numpy
@@ -26,10 +26,15 @@ del checkpoint
 
 
 x_corrs, y_corrs, _, _ = get_cifar10_numpy()
-logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
+logger_path = get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task)
+logger = get_logger(logger_path)
 
-logger.info("use diffusion..")
-final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
+if args_test.main_task =='ood':
+    logger.info("use diffusion..")
+    final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
 
-logger.info("not use diffusion..")
-final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
+    logger.info("not use diffusion..")
+    final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
+
+elif args_test.main_task =='adv':
+    run_final_test_autoattack(model, args_test, logger=logger_path, device=device )

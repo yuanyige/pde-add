@@ -102,7 +102,7 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, use_diffusion = True):
+    def net(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
@@ -113,6 +113,21 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
 
         out = self.linear(out)
+        return out
+    
+    def forward(self, x, use_diffusion=True):
+        #if self.training:
+            #print('training........')
+        out = self.net(x)
+            #out = F.log_softmax(out, dim=1)
+        # else:
+        #     #print('evaling........')
+        #     proba = 0 
+        #     for k in range(10):  
+        #         out = self.net(x)
+        #         p = F.softmax(out, dim=1)
+        #         proba = proba + p
+        #     out = ((proba/10)+1e-20).log() # next nll
         return out
     
 
