@@ -13,6 +13,7 @@ from .cifar10.fixdiff_wideresnet import fixdiff_wideresnet as fixdiff_wideresnet
 from .cifar10.ladiff_wideresnet import ladiff_wideresnet as ladiff_wideresnet_cifar10
 
 from .cifar100.standard_resnet import standard_resnet as standard_resnet_cifar100
+from .cifar100.ladiff_resnet import ladiff_resnet as ladiff_resnet_cifar100
 
 def create_model(data, backbone, protocol):
 

@@ -46,7 +46,13 @@ def run_ladiff(model):
         #eval_nat_endiff_metric = test_ensemble(dataloader_test, model, ensemble_iter=args.ensemble_iter_eval, device=device)
 
         # # test for ood
-        eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
+        if epoch < 100:
+            eval_per_epoch = 20
+        else:
+            eval_per_epoch = 1
+            
+        if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
+            eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
         #eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
         
         # acc_corrs=[]

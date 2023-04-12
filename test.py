@@ -6,7 +6,7 @@ from core.models import create_model
 from core.testfn import final_corr_eval
 from core.parse import parser_test
 from core.utils import set_seed, get_logger, get_logger_name
-from core.data import corruptions, get_cifar10_numpy
+from core.data import corruptions, get_cifar10_numpy, get_cifar100_numpy
 
 args_test = parser_test()
 
@@ -23,11 +23,17 @@ model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 del checkpoint
 
+if args_test.data == 'cifar10':
+    x_corrs, y_corrs, _, _ = get_cifar10_numpy()
+elif args_test.data == 'cifar100':
+    x_corrs, y_corrs, _, _ = get_cifar100_numpy()
+else:
+    raise
 
-
-x_corrs, y_corrs, _, _ = get_cifar10_numpy()
 logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
+
 logger.info("not use diffusion..")
 final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
+
 logger.info("use diffusion..")
 final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)

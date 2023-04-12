@@ -32,6 +32,7 @@ def load_data(args):
 
     transform_train = T.Compose([T.RandomCrop(32, padding=4), 
                             T.RandomHorizontalFlip(),
+                            T.AugMix(),
                             T.ToTensor()])
     transform_eval = T.Compose([T.ToTensor()])
 
@@ -61,14 +62,6 @@ def load_data(args):
 
 
 
-# class Identity(torch.nn.Module):
-#     def __init__(self):
-#         super().__init__()    
-#     def forward(self, x):
-#         return x
-
-
-
 class DataAugmentor():
     def __init__(self, augments, save_path=None, name=''):
         augments = augments.split('-')
@@ -81,8 +74,7 @@ class DataAugmentor():
                 else:
                     p = int(p)
                 self.aug_param.append(p)
-            #print(self.aug_param)
-            #self.aug_param = [int(p) for p in augments[1:]]
+
         self.aug_mapping = {"gaublur":T.GaussianBlur, 
                             "elastic":T.ElasticTransform,
                             "contrast":T.RandomAutocontrast,
@@ -119,11 +111,12 @@ class DataAugmentor():
 #         'gaussian_noise','shot_noise','speckle_noise','impulse_noise',
 #         'brightness','contrast','elastic_transform',
 #         'pixelate','jpeg_compression','spatter','saturate']
+
 corruptions = ['snow', 'fog', 'frost', 'glass_blur', 'defocus_blur', 'motion_blur','zoom_blur', 
                'gaussian_noise', 'shot_noise', 'impulse_noise',
                'pixelate', 'brightness', 'contrast','jpeg_compression', 'elastic_transform']
 
-from robustbench.data import load_cifar10c, load_cifar10
+from robustbench.data import load_cifar10c, load_cifar10, load_cifar100c, load_cifar100
 
 def get_cifar10_numpy():
     x_clean, y_clean = load_cifar10(n_examples=10000, data_dir='./datasets/cifar10')
@@ -151,6 +144,31 @@ def get_cifar10_numpy():
 
     return x_corrs, y_corrs, x_corrs_fast, y_corrs_fast
 
+def get_cifar100_numpy():
+    x_clean, y_clean = load_cifar100(n_examples=10000, data_dir='./datasets/cifar100')
+    x_corrs = []
+    y_corrs = []
+    x_corrs.append(x_clean)
+    y_corrs.append(y_clean)
+    for i in range(1, 6):
+        x_corr = []
+        y_corr = []
+        for j, corr in enumerate(corruptions):
+            x_, y_ = load_cifar100c(n_examples=10000, data_dir='./datasets/', severity=i, corruptions=(corr,))
+            x_corr.append(x_)
+            y_corr.append(y_)
+
+        x_corrs.append(x_corr)
+        y_corrs.append(y_corr)
+
+    x_corrs_fast = []
+    y_corrs_fast = []
+    for i in range(1, 6):
+        x_, y_ = load_cifar100c(n_examples=1000, data_dir='./datasets/', severity=i, shuffle=True)
+        x_corrs_fast.append(x_)
+        y_corrs_fast.append(y_)
+
+    return x_corrs, y_corrs, x_corrs_fast, y_corrs_fast
 
 class CIFARC(datasets.VisionDataset):
     def __init__(self, root :str, name=None,
@@ -227,12 +245,17 @@ def load_cifar_c(data_name, data_dir, batch_size, cname=None, dnum='all', severi
     
     transform = T.Compose([T.ToTensor()])
 
+    if data_name == 'cifar10':
+        filename = "CIFAR-10-C"
+    elif data_name == 'cifar100':
+        filename = "CIFAR-100-C"
+
     if dnum =='all': 
-        data_cifar10c = CIFARC(os.path.join(data_dir, data_name+'c'), cname, transform=transform, dnum='all', severity=severity)  
+        data_cifar10c = CIFARC(os.path.join(data_dir, filename), cname, transform=transform, dnum='all', severity=severity)  
         dataloader_cifar10c = torch.utils.data.DataLoader(data_cifar10c, batch_size=batch_size, shuffle=False)
     else:
-        transform = T.Compose([T.ToTensor()])
-        data_cifar10c = CIFARC(os.path.join(data_dir, data_name+'c'), transform=transform, dnum=dnum, severity=severity)  
+        #transform = T.Compose([T.ToTensor()])
+        data_cifar10c = CIFARC(os.path.join(data_dir, filename), transform=transform, dnum=dnum, severity=severity)  
         dataloader_cifar10c = torch.utils.data.DataLoader(data_cifar10c, batch_size=batch_size, shuffle=False)
     
     return dataloader_cifar10c   

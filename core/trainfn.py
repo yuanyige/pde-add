@@ -25,7 +25,7 @@ def train_ladiff_augdiff(dataloader_train, model,
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)
 
-        x = augmentor.apply(x, visualize=if_visualize)
+        # x = augmentor.apply(x, visualize=if_visualize)
         
         if attacker:
             with ctx_noparamgrad_and_eval(model):
@@ -42,7 +42,7 @@ def train_ladiff_augdiff(dataloader_train, model,
         mus_aug = model.mus
 
         lossDiff = 0
-        #lossDiff = torch.Tensor([0])
+        # lossDiff = torch.Tensor([0])
         for mu_aug, mu, sigma in zip(mus_aug, mus, sigmas):
             lossDiff += nll_loss(mu_aug.view(x.shape[0],-1), mu.view(x.shape[0],-1), sigma.view(x.shape[0],-1))
         lossDiff = lossDiff/len(mus)
