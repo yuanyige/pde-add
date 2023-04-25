@@ -45,9 +45,17 @@ def run_ladiff(model):
         # test for nat
         eval_nat_wodiff_metric = test(dataloader_test, model, use_diffusion=False, device=device)
 
-        # # test for ood
-        eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-        eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
+        # test for ood
+        if epoch < 100:
+            eval_per_epoch = 20
+        elif epoch < 160:
+            eval_per_epoch = 10
+        else:
+            eval_per_epoch = 1
+            
+        if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
+            eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
+            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)     
 
         # test for adv
         # eval_ood_wodiff_metric = test(dataloader_test, model, use_diffusion=False, attacker=attack_eval, device=device)
@@ -88,7 +96,8 @@ def run_ladiff(model):
         logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
                     train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
         logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))   
+                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
+
         logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
                     eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
@@ -291,6 +300,8 @@ if args.resume_file:
     del checkpoint
     
 
+#print('aaaa','/'.join(args.save_dir.split('/')[:-1]))
+
 # main train
 if 'ladiff' in args.protocol:
     run_ladiff(model = model)
@@ -301,35 +312,41 @@ elif args.protocol == 'standard':
 
 
     
-import os
-import json
-import torch
-from core.utils import set_seed
-from core.models import create_model
-from core.testfn import final_corr_eval
-from core.parse import parser_test
-from core.utils import set_seed, get_logger, get_logger_name
-from core.data import corruptions, get_cifar10_numpy
 
-print('\n\n=========== start testing ===========')
-args.ckpt_path = '/'.join(args.save_dir.split('/')[:-1])
-args.load_ckpt = 'model-best-wodiff'
-args.main_task =  'ood'
+# import os
+# import json
+# import torch
+# from core.utils import set_seed
+# from core.models import create_model
+# from core.testfn import final_corr_eval
+# from core.parse import parser_test
+# from core.utils import set_seed, get_logger, get_logger_name
+# from core.data import corruptions, get_cifar10_numpy
 
-set_seed(args.seed)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = create_model(args.data, args.backbone, args.protocol)
-model = model.to(device)
-checkpoint = torch.load(os.path.join(args.ckpt_path,'train',args.load_ckpt+'.pt'))
-model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()
-del checkpoint
+# args_test = parser_test()
+# args_test.ckpt_path = '/'.join(args.save_dir.split('/')[:-1])
 
-x_corrs, y_corrs, _, _ = get_cifar10_numpy()
-logger_test = get_logger(get_logger_name(args.ckpt_path, args.load_ckpt, args.main_task))
-logger_test.info("not use diffusion..")
-final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger_test)
-logger_test.info("use diffusion..")
-final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger_test)
+# with open(os.path.join(args_test.ckpt_path,'train/args.txt'), 'r') as f:
+#     old = json.load(f)
+#     args_test.__dict__ = dict(vars(args_test), **old)
+
+# set_seed(args_test.seed)
+# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# model = create_model(args_test.data, args_test.backbone, args_test.protocol)
+# model = model.to(device)
+# checkpoint = torch.load(os.path.join(args_test.ckpt_path,'train',args_test.load_ckpt+'.pt'))
+# model.load_state_dict(checkpoint['model_state_dict'])
+# model.eval()
+# del checkpoint
+
+
+
+# x_corrs, y_corrs, _, _ = get_cifar10_numpy()
+# logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
+# logger.info("not use diffusion..")
+# final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
+# logger.info("use diffusion..")
+# final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
+
 
 

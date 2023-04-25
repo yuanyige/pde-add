@@ -7,7 +7,9 @@ from core.data import load_data
 from autoattack import AutoAttack
 import numpy as np
 import math
-from core.utils import set_seed
+from torchmetrics.functional.classification import multiclass_calibration_error
+
+
 
 
 def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=None, device=None):
@@ -26,24 +28,30 @@ def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=No
         with torch.no_grad():
             if augmentor:
                 x = augmentor.apply(x, True)
-            
-            if use_diffusion:
-                out = 0 
-                for k in range(10):  
-                    o = model(x, use_diffusion=True)
-                    out = out + o
-                out = out/10
-            else:
-                out = model(x, use_diffusion = False)
+
+            out = model(x, use_diffusion = use_diffusion)
 
             batch_metric["eval_loss"] = F.cross_entropy(out, y).data.item()
             batch_metric["eval_acc"] = (torch.softmax(out.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
+
             metrics = pd.concat([metrics, pd.DataFrame(batch_metric, index=[0])], ignore_index=True)
 
     return dict(metrics.agg({
             "eval_loss":"mean",
             "eval_acc":lambda x: 100*sum(x)/len(dataloader_test.dataset)}))
 
+
+
+# def compute_mce(corruption_accs, corruptions, baseline_err):
+#   """Compute mCE (mean Corruption Error) normalized by AlexNet performance."""
+#   mce = 0.
+#   avg = []
+#   for i in range(len(corruptions)):
+#     avg.append(np.mean(corruption_accs[corruptions[i]])*100.)
+#     avg_err = 1 - np.mean(corruption_accs[corruptions[i]])
+#     ce = 100 * avg_err / baseline_err[i]
+#     mce += ce / 15
+#   return np.mean(avg), mce
 
 
 
@@ -65,15 +73,8 @@ def clean_accuracy(model: torch.nn.Module,
             y_curr = y[counter * batch_size:(counter + 1) *
                        batch_size].to(device)
 
-            if use_diffusion:
-                output = 0 
-                for k in range(10):  
-                    o = model(x, use_diffusion=True)
-                    output = output + o
-                output = output/10
-                
-            else:
-                output = model(x_curr, use_diffusion=False)
+            output = model(x_curr, use_diffusion=use_diffusion)
+
             
             acc += (output.max(1)[1] == y_curr).float().sum()
 
@@ -83,46 +84,91 @@ def clean_accuracy(model: torch.nn.Module,
     return acc.item() / x.shape[0], loss.item() / n_batches
 
 
+def compute_ece (model: torch.nn.Module,
+                   use_diffusion: bool,
+                   x: torch.Tensor,
+                   y: torch.Tensor,
+                   batch_size: int = 100,
+                   device: torch.device = None):
+    if device is None:
+        device = x.device
+    ece = 0.
+    n_batches = math.ceil(x.shape[0] / batch_size)
+    with torch.no_grad():
+        for counter in range(n_batches):
+            x_curr = x[counter * batch_size:(counter + 1) *
+                       batch_size].to(device)
+            y_curr = y[counter * batch_size:(counter + 1) *
+                       batch_size].to(device)
 
-def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, logger, n_runs=1):
+            output = model(x_curr, use_diffusion=use_diffusion)
+            
+            ece += multiclass_calibration_error(output, y_curr, num_classes=10, n_bins=15, norm='l1')
+
+    return ece.item() / n_batches
+
+
+def compute_mce(corruption_accs, baseline_acc):
+  """Compute mCE (mean Corruption Error) normalized by Baseline performance."""
+  mce = 0.
+  for i in range(15):
+    ce = (1-corruption_accs[i]) / (1-baseline_acc[i])
+    mce += ce 
+  return mce / 15
+
+
+def compute_rmce(nat_acc, corr_accs, baseline_nat_acc, baseline_corr_accs):
+  """Compute rmCE (relative mean Corruption Error) normalized by Baseline performance."""
+  mce = 0.
+  for i in range(15):
+    ce = ((1-corr_accs[i])-(1-nat_acc)) / ((1-baseline_corr_accs[i])-(1-baseline_nat_acc))
+    mce += ce 
+  return mce / 15
+
+
+def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, baseline_accs, logger):
+    l = len(corruptions)
+    
     model.eval()
-    clean_acc=np.zeros((1, n_runs))
-    clean_loss =np.zeros((1, n_runs))
-    for k in range(n_runs):
-        clean_acc[0, k], clean_loss[0, k] = clean_accuracy(model, use_diffusion, x_corrs[0].to(list(model.parameters())[0].device), y_corrs[0].to(list(model.parameters())[0].device))
-    logger.info("Clean accuracy: {:.2%}+-{:.2} ".format(clean_acc.mean(),clean_acc.std()))
-    logger.info("Clean loss: {:.2}+-{:.2} ".format(clean_loss.mean(),clean_loss.std()))
+    nat_acc = clean_accuracy(model, use_diffusion, x_corrs[0].to(list(model.parameters())[0].device), y_corrs[0].to(list(model.parameters())[0].device))
+    logger.info('nat_acc: {}'.format(nat_acc))
 
-    res_acc = np.zeros((5, 15, n_runs))
-    res_loss = np.zeros((5, 15, n_runs))
+    
+    res = np.zeros((5, l))
     for i in range(1, 6):
         for j, c in enumerate(corruptions):
-            for k in range(n_runs):
-                res_acc[i-1, j, k], res_loss[i-1, j, k] = clean_accuracy(model, use_diffusion, x_corrs[i][j].to(list(model.parameters())[0].device), y_corrs[i][j].to(list(model.parameters())[0].device))
-                print(f"{c} {i} {res_acc[i-1, j, k]}")
-                print(f"{c} {i} {res_loss[i-1, j, k]}")
-    
-    mean_acc = np.mean(res_acc, axis=2)
-    std_acc = np.std(res_acc, axis=2)
+            res[i-1, j] = clean_accuracy(model, use_diffusion, x_corrs[i][j].to(list(model.parameters())[0].device), y_corrs[i][j].to(list(model.parameters())[0].device))
+            #print(c, i, res[i-1, j])
 
-    mean_loss = np.mean(res_loss, axis=2)
-    std_loss = np.std(res_loss, axis=2)
-    
-    frame = pd.DataFrame({i+1: [f"{mean_acc[i, j]:.2%}+-{std_acc[i, j]:.2%}" for j in range(15)] for i in range(0, 5)}, index=corruptions)
-    frame.loc['average'] = {i+1: f"{np.mean(mean_acc, axis=1)[i]:.2%}+-{np.mean(std_acc, axis=1)[i]:.2%}" for i in range(0, 5)}
-    frame['avg'] = [f"{np.mean(mean_acc[:, i]):.2%}+-{np.mean(std_acc[:, i]):.2%}" for i in range(15)] + [f"{np.mean(mean_acc):.2%}+-{np.mean(std_acc):.2%}"]
+    frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corruptions)
+    frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+    frame['avg'] = frame[list(range(1,6))].mean(axis=1)
     logger.info(frame)
 
-    frame_loss = pd.DataFrame({i+1: [f"{mean_loss[i, j]:.2}+-{std_loss[i, j]:.2}" for j in range(15)] for i in range(0, 5)}, index=corruptions)
-    frame_loss.loc['average'] = {i+1: f"{np.mean(mean_loss, axis=1)[i]:.2}+-{np.mean(std_loss, axis=1)[i]:.2}" for i in range(0, 5)}
-    frame_loss['avg'] = [f"{np.mean(mean_loss[:, i]):.2}+-{np.mean(std_loss[:, i]):.2}" for i in range(15)] + [f"{np.mean(mean_loss):.2%}+-{np.mean(std_acc):.2%}"]
-    logger.info(frame_loss)
+    baseline_acc_nat=baseline_accs[0]
+    baseline_acc_s0=baseline_accs[1]
+    baseline_acc_s5=baseline_accs[2]
 
-    return frame, frame_loss
+    s0 = list(frame['avg'])
+    s5 = list(frame[5])
+
+    mce_s0 = compute_mce(s0, baseline_acc_s0)
+    logger.info('mce_s0: {}'.format(mce_s0))
+
+    mce_s5 = compute_mce(s5, baseline_acc_s5)
+    logger.info('mce_s5: {}'.format(mce_s5))
+
+    rmce_s0 = compute_rmce(nat_acc, s0, baseline_acc_nat, baseline_acc_s0)
+    logger.info('rmce_s0: {}'.format(rmce_s0))
+
+
+    rmce_s5 = compute_rmce(nat_acc, s5, baseline_acc_nat, baseline_acc_s5)
+    logger.info('rmce_s5: {}'.format(rmce_s5))
 
 
 
 def run_final_test_autoattack(model, args_test, logger, device):
+
 
     _, loader_test = load_data(args_test)
 

@@ -8,6 +8,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+class Diffusion(nn.Module):
+    def __init__(self, planes):
+        super(Diffusion, self).__init__()
+        self.main = nn.Sequential(
+            nn.Conv2d(planes, 2*planes, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(2*planes),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(2*planes, planes, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(planes),
+            nn.ReLU(inplace=True))
+
+    def forward(self, input):
+        out =  self.main(input)
+        return out
+    
+
 class BasicBlock(nn.Module):
     """Basic Block for resnet 18 and resnet 34
     """
@@ -41,36 +58,20 @@ class BasicBlock(nn.Module):
                 nn.BatchNorm2d(out_channels * BasicBlock.expansion)
             )
 
-    def forward(self, x):
-        return nn.ReLU(inplace=True)(self.residual_function(x) + self.shortcut(x))
-
-class BottleNeck(nn.Module):
-    """Residual block for resnet over 50 layers
-    """
-    expansion = 4
-    def __init__(self, in_channels, out_channels, stride=1):
-        super().__init__()
-        self.residual_function = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, stride=stride, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels * BottleNeck.expansion, kernel_size=1, bias=False),
-            nn.BatchNorm2d(out_channels * BottleNeck.expansion),
-        )
-
-        self.shortcut = nn.Sequential()
-
-        if stride != 1 or in_channels != out_channels * BottleNeck.expansion:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels * BottleNeck.expansion, stride=stride, kernel_size=1, bias=False),
-                nn.BatchNorm2d(out_channels * BottleNeck.expansion)
-            )
+        self.diff = Diffusion(out_channels)
 
     def forward(self, x):
-        return nn.ReLU(inplace=True)(self.residual_function(x) + self.shortcut(x))
+        x, use_diffusion, _ = x 
+        out = nn.ReLU(inplace=True)(self.residual_function(x) + self.shortcut(x))
+    
+        if use_diffusion:
+            sigma = self.diff(out)
+            out = out + sigma * torch.randn_like(out)
+            return (out, use_diffusion, sigma)
+        else:
+            return (out, use_diffusion, 0)
+
+
 
 class ResNet(nn.Module):
 
@@ -124,37 +125,79 @@ class ResNet(nn.Module):
         output = self.avg_pool(output)
         output = output.view(output.size(0), -1)
         output = self.fc(output)
-        #output = F.log_softmax(output,dim=1)
+        output = F.log_softmax(output,dim=1)
 
         return output
 
-# def resnet18():
-#     """ return a ResNet 18 object
-#     """
-#     return ResNet(BasicBlock, [2, 2, 2, 2])
+    def net(self, x, use_diffusion=True):
+        
+        self.mus = []
+        self.sigmas = [] 
+        self.scales = []
 
-# def resnet34():
-#     """ return a ResNet 34 object
-#     """
-#     return ResNet(BasicBlock, [3, 4, 6, 3])
+        out = self.conv1(x)
+        out = self.conv2_x((out, use_diffusion, 0))
+        self.mus.append(out[0])
+        self.sigmas.append(out[2])
+        if use_diffusion:
+            self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
-# def resnet50():
-#     """ return a ResNet 50 object
-#     """
-#     return ResNet(BottleNeck, [3, 4, 6, 3])
+        out = self.conv3_x(out)
+        self.mus.append(out[0])
+        self.sigmas.append(out[2])
+        if use_diffusion:
+            self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
-# def resnet101():
-#     """ return a ResNet 101 object
-#     """
-#     return ResNet(BottleNeck, [3, 4, 23, 3])
+        out = self.conv4_x(out)
+        self.mus.append(out[0])
+        self.sigmas.append(out[2])
+        if use_diffusion:
+            self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
 
-# def resnet152():
-#     """ return a ResNet 152 object
-#     """
-#     return ResNet(BottleNeck, [3, 8, 36, 3])
+        out = self.conv5_x(out)
+        self.mus.append(out[0])
+        self.sigmas.append(out[2])
+        if use_diffusion:
+            self.scales.append(out[2].max().detach().data.item())
+        else:
+            self.scales.append(0)
+
+        out = out[0]
+
+        out = self.avg_pool(out)
+        out = out.view(out.size(0), -1)
+        out = self.fc(out)
+
+        return out
+    
+    def forward(self, x, use_diffusion=True):
+        if self.training:
+            #print('training........')
+            out = self.net(x, use_diffusion=use_diffusion)
+            #out = F.log_softmax(out, dim=1)
+        else:
+            #print('evaling........')
+            if use_diffusion:
+                proba = 0 
+                for k in range(10):  
+                    out = self.net(x, use_diffusion=True)
+                    #p = F.softmax(out, dim=1)
+                    proba = proba + out
+                out = proba/10 # next nll
+            else:
+                out = self.net(x, use_diffusion=False)
+                #out = F.log_softmax(out, dim=1)
+        return out
 
 
-def standard_resnet(name, num_classes=100, pretrained=False, device='cpu'):
+
+def ladiff_resnet(name, num_classes=100, pretrained=False, device='cpu'):
     print("cifar100..")
     """
     Returns suitable Resnet model from its name.

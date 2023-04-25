@@ -2,17 +2,19 @@ CUDA_VISIBLE_DEVICES=2 \
 python train.py \
 --data cifar10 \
 --seed 3407 \
---protocol ladiff-augdiff \
---desc catori+clafalse \
+--protocol ladiff-oridiff \
+--desc woanyaug \
 --backbone resnet-18 \
---epoch 200 \
---save-dir exps_cifar10/dall_rn18 \
+--epoch 400 \
+--save-dir exps_cifar10/optimal \
 --npc-train all \
---lrC 0.05 \
+--lrC 0.005 \
 --lrDiff 0.1 \
 --schedule cosanlr \
---aug-train augmix-10-10 \
+--aug-train-inplace none \
+--aug-train augmix \
 --atk-train none \
 --atk-eval none \
---severity-eval 3
+--severity-eval 5
+
 

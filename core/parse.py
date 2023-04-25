@@ -14,18 +14,16 @@ def parser_train():
     parser.add_argument('--batch-size-validation', type=int, default=128, help='Batch size for testing.') 
     parser.add_argument('--ensemble-iter-eval',  type=int, default=10, help='Number of ensemble while evaluating, helping choose best epoch')
      
-
     # data 
     parser.add_argument('--data-dir', type=str, default='./datasets')
     parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100'], help='Data to use.')
     parser.add_argument('--norm', action='store_true')
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
     
-
     # augmentation
+    parser.add_argument('--aug-train-inplace',  type=str, default="augmix", help='Data augmentation for training, replacing clean') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
     parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
     parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=5, help='Data augmentation severity for evaluating')
-
 
     # attack
     parser.add_argument('--atk-train', type=str, choices=['fgsm', 'linf-pgd', 'fgm', 'l2-pgd', 'linf-df', 'l2-df', 'linf-apgd', 'l2-apgd', 'none'], 
@@ -36,10 +34,9 @@ def parser_train():
     parser.add_argument('--attack-step', type=float, default=2/255, help='Step size for PGD attack.')
     parser.add_argument('--attack-iter', type=int, default=10, help='Max. number of iterations (if any) for the attack.')
 
-
     # model
     parser.add_argument('--backbone', type=str, choices=['resnet-18', 'wideresnet-16-4', 'preresnet-18'], default="resnet-18")
-    parser.add_argument('--protocol', type=str,  default="ladiff-augdiff") # choices=['standard', 'fixdiff', 'ladiff-augdiff', 'ladiff-oridiff-claug', 'ladiff-oridiff-clori']
+    parser.add_argument('--protocol', type=str,  default="ladiff-augdiff") # choices=['standard', 'fixdiff', 'ladiff-augdiff', 'ladiff-oridiff']
     parser.add_argument('--pretrained-file', type=str, default=None, help='Pretrained weights file name.')
     parser.add_argument('--resume-file', type=str, default=None, help='Resumed file name.')
     parser.add_argument('--save-freq', type=int, default=50, help='Save per epochs.') 
@@ -64,7 +61,8 @@ def parser_test():
     parser.add_argument('--ckpt_path', type=str)
     parser.add_argument('--main_task', type=str, choices=["ood","adv"])
     parser.add_argument('--severity',  type=int, choices=[0,1,2,3,4,5], help='Data augmentation severity for testing')
-    parser.add_argument('--threat',  type=str, choices=['Linf','L2'])
+    parser.add_argument('--type',  type=str, choices=['c15','c19'], help='Data augmentation type for testing')
+    parser.add_argument('--threat',  type=str, choices=['linf','l2'])
     parser.add_argument('--load_ckpt', type=str)
     args = parser.parse_args()
     return args
