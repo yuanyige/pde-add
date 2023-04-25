@@ -7,7 +7,7 @@ import os
 import re
 
 def get_logger(logpath, filepath=os.path.abspath(__file__),  displaying=True, saving=True):
-    logger = logging.getLogger()
+    logger = logging.getLogger(logpath)
     level = logging.INFO
     logger.setLevel(level)
     if saving:
@@ -109,7 +109,7 @@ class BestSaver():
 
 
 def save_model(model, optimizerC, scheduler=None, optimizerDiff=None,  save_path=None):
-    if scheduler:
+    if scheduler and hasattr(scheduler, 'state_dict'):
         scheduler_state_dict = scheduler.state_dict()
     else:
         scheduler_state_dict = None

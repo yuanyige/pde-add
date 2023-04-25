@@ -140,7 +140,7 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def forward(self, x, use_diffusion=True):
+    def net(self, x, use_diffusion=True):
         self.mus = []
         self.sigmas = [] 
         self.scales = []
@@ -171,6 +171,25 @@ class WideResNet(nn.Module):
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels)
         return self.fc(out)
+    
+    def forward(self, x, use_diffusion=True):
+        #if self.training:
+        out = self.net(x, use_diffusion=use_diffusion)
+        # out = F.log_softmax(out, dim=1)
+        # else:
+        #     use_diffusion=True
+        #     if use_diffusion:
+        #         proba = 0 
+        #         print('proba',proba)
+        #         for k in range(10):  
+        #             out = self.net(x, use_diffusion=True)
+        #             p = F.softmax(out, dim=1)
+        #             proba = proba + p
+        #         out = ((proba/10)+1e-20).log() # next nll
+        #     else:
+        #         out = self.net(x, use_diffusion=False)
+        #         out = F.log_softmax(out, dim=1)
+        return out
 
        
 def ladiff_wideresnet(name, num_classes=10, device='cpu'):

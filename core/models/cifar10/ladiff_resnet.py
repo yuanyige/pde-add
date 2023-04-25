@@ -140,6 +140,7 @@ class ResNet(nn.Module):
         return out
     
     def forward(self, x, use_diffusion=True):
+    
         if self.training:
             out = self.net(x, use_diffusion=use_diffusion)
         else:

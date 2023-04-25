@@ -7,9 +7,8 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.models import create_model
-from core.trainfn import train_standard, train_ladiff #train_ladiff_oridiff_clori, train_ladiff_oridiff_claug, train_ladiff_augdiff
-#from core.trainfn_augdiff import train_ladiff
-from core.testfn import test#, test_ensemble
+from core.trainfn import train_standard, train_ladiff
+from core.testfn import test
 from core.parse import parser_train
 from core.data import DataAugmentor, load_data, load_cifar_c
 from core.utils import BestSaver, get_logger, set_seed, format_time, save_model, get_desc
@@ -33,16 +32,19 @@ def run_ladiff(model):
         start = time.time()
         
         # train
-        train_metric = train_ladiff(args.protocol)(dataloader_train, model, optimizerDiff, optimizerC, 
+
+        train_metric = train_ladiff(args.protocol)(dataloader_train, model, optimizerDiff, optimizerC, scheduler_pack=scheduler_pack,
                         augmentor=augmentor, attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
 
-        if (args.scheduler != 'none') and (epoch > args.warm):
-            scheduler.step()  
-        if (args.warm) and (epoch <= args.warm):
-            warmup_scheduler.step()
+        if args.scheduler != 'piecewise':
+            if (args.scheduler != 'none') and (epoch > args.warm):
+                scheduler.step()  
+            if (args.warm) and (epoch <= args.warm):
+                warmup_scheduler.step()
 
         # test for nat
         eval_nat_wodiff_metric = test(dataloader_test, model, use_diffusion=False, device=device)
+
         # test for ood
         if epoch < 100:
             eval_per_epoch = 20
@@ -53,8 +55,8 @@ def run_ladiff(model):
             
         if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
             eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
-        
+            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)     
+
         # test for adv
         # eval_ood_wodiff_metric = test(dataloader_test, model, use_diffusion=False, attacker=attack_eval, device=device)
         #eval_ood_endiff_metric = test_ensemble(dataloader_test, model, ensemble_iter=args.ensemble_iter_eval, attacker=attack_eval, device=device)
@@ -95,6 +97,7 @@ def run_ladiff(model):
                     train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
         logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
+
         logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
                     eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
@@ -273,7 +276,10 @@ if 'ladiff' in args.protocol:
     optimizerDiff = torch.optim.Adam(diffusion_params,lr=args.lrDiff)
 
 # schedulers
-scheduler = get_scheduler(args, opt=optimizerC)
+scheduler_pack = get_scheduler(args, opt=optimizerC)
+scheduler_name = scheduler_pack[0]
+scheduler = scheduler_pack[1]
+
 if args.warm:
     iter_per_epoch = len(dataloader_train)
     warmup_scheduler = WarmUpLR(optimizerC, iter_per_epoch * args.warm)
@@ -306,6 +312,7 @@ elif args.protocol == 'standard':
 
 
     
+
 # import os
 # import json
 # import torch
@@ -340,5 +347,6 @@ elif args.protocol == 'standard':
 # final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
 # logger.info("use diffusion..")
 # final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
+
 
 
