@@ -119,7 +119,7 @@ class PreActResNet(nn.Module):
         out = self.linear(out)
         return out
     
-    def forward(self, x, use_diffusion=True):
+    def net(self, x, use_diffusion=True):
         
         self.mus = []
         self.sigmas = [] 
@@ -155,6 +155,20 @@ class PreActResNet(nn.Module):
         out = F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
+        return out
+    
+    def forward(self, x, use_diffusion=True):
+        if self.training:
+            out = self.net(x, use_diffusion=use_diffusion)
+        else:
+            if use_diffusion:
+                proba = 0 
+                for k in range(10):  
+                    out = self.net(x, use_diffusion=True)
+                    proba = proba + out
+                out = proba/10
+            else:
+                out = self.net(x, use_diffusion=False)
         return out
 
 

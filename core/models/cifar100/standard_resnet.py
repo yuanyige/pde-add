@@ -124,7 +124,7 @@ class ResNet(nn.Module):
         output = self.avg_pool(output)
         output = output.view(output.size(0), -1)
         output = self.fc(output)
-        output = F.log_softmax(output,dim=1)
+        #output = F.log_softmax(output,dim=1)
 
         return output
 

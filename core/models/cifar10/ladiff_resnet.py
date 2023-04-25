@@ -141,21 +141,16 @@ class ResNet(nn.Module):
     
     def forward(self, x, use_diffusion=True):
         if self.training:
-            #print('training........')
             out = self.net(x, use_diffusion=use_diffusion)
-            out = F.log_softmax(out, dim=1)
         else:
-            #print('evaling........')
             if use_diffusion:
                 proba = 0 
                 for k in range(10):  
                     out = self.net(x, use_diffusion=True)
-                    p = F.softmax(out, dim=1)
-                    proba = proba + p
-                out = ((proba/10)+1e-20).log() # next nll
+                    proba = proba + out
+                out = proba/10
             else:
                 out = self.net(x, use_diffusion=False)
-                out = F.log_softmax(out, dim=1)
         return out
 
 
