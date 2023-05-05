@@ -11,11 +11,11 @@ from torchmetrics.functional.classification import multiclass_calibration_error
 
 
 
-
 def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=None, device=None):
 
     metrics = pd.DataFrame()
     model.eval()
+    
     
     for x, y in dataloader_test:
         batch_metric = defaultdict(float)
@@ -41,20 +41,6 @@ def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=No
             "eval_acc":lambda x: 100*sum(x)/len(dataloader_test.dataset)}))
 
 
-
-# def compute_mce(corruption_accs, corruptions, baseline_err):
-#   """Compute mCE (mean Corruption Error) normalized by AlexNet performance."""
-#   mce = 0.
-#   avg = []
-#   for i in range(len(corruptions)):
-#     avg.append(np.mean(corruption_accs[corruptions[i]])*100.)
-#     avg_err = 1 - np.mean(corruption_accs[corruptions[i]])
-#     ce = 100 * avg_err / baseline_err[i]
-#     mce += ce / 15
-#   return np.mean(avg), mce
-
-
-
 def clean_accuracy(model: torch.nn.Module,
                    use_diffusion: bool,
                    x: torch.Tensor,
@@ -64,7 +50,6 @@ def clean_accuracy(model: torch.nn.Module,
     if device is None:
         device = x.device
     acc = 0.
-    loss = 0.
     n_batches = math.ceil(x.shape[0] / batch_size)
     with torch.no_grad():
         for counter in range(n_batches):
@@ -74,14 +59,10 @@ def clean_accuracy(model: torch.nn.Module,
                        batch_size].to(device)
 
             output = model(x_curr, use_diffusion=use_diffusion)
-
             
             acc += (output.max(1)[1] == y_curr).float().sum()
 
-            loss += F.cross_entropy(output,y_curr).float()
-        
-
-    return acc.item() / x.shape[0], loss.item() / n_batches
+    return acc.item() / x.shape[0]
 
 
 def compute_ece (model: torch.nn.Module,
@@ -161,15 +142,12 @@ def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, baselin
     rmce_s0 = compute_rmce(nat_acc, s0, baseline_acc_nat, baseline_acc_s0)
     logger.info('rmce_s0: {}'.format(rmce_s0))
 
-
     rmce_s5 = compute_rmce(nat_acc, s5, baseline_acc_nat, baseline_acc_s5)
     logger.info('rmce_s5: {}'.format(rmce_s5))
 
 
-
 def run_final_test_autoattack(model, args_test, logger, device):
-
-
+    
     _, loader_test = load_data(args_test)
 
     l = [x for (x, y) in loader_test]
@@ -177,23 +155,10 @@ def run_final_test_autoattack(model, args_test, logger, device):
     l = [y for (x, y) in loader_test]
     y_test = torch.cat(l, 0)
 
-    if args_test.threat =='Linf':
+    if args_test.threat =='linf':
         epsilon = 8 / 255.
-    elif args_test.threat =='L2':
+    elif args_test.threat =='l2':
         epsilon = 0.5
     adversary = AutoAttack(model, norm=args_test.threat, eps=epsilon, version='standard', log_path=logger, seed=args_test.seed)
-    
-    def get_logits_en(self, x):
-        if not self.is_tf_model:
-            proba = 0 
-            for k in range(10):  
-                o = self.model(x, use_diffusion=True)
-                proba = proba + o
-            out = proba/10
-            return out
-        else:
-            return self.model.predict(x)
-    adversary.get_logits = get_logits_en
-
     with torch.no_grad():
         x_adv = adversary.run_standard_evaluation(x_test, y_test, bs=128)

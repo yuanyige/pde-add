@@ -32,19 +32,16 @@ def run_ladiff(model):
         start = time.time()
         
         # train
-
-        train_metric = train_ladiff(args.protocol)(dataloader_train, model, optimizerDiff, optimizerC, scheduler_pack=scheduler_pack,
+        train_metric = train_ladiff(args.protocol)(dataloader_train, model, optimizerDiff, optimizerC, 
                         augmentor=augmentor, attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
 
-        if args.scheduler != 'piecewise':
-            if (args.scheduler != 'none') and (epoch > args.warm):
-                scheduler.step()  
-            if (args.warm) and (epoch <= args.warm):
-                warmup_scheduler.step()
+        if (args.scheduler != 'none') and (epoch > args.warm):
+            scheduler.step()  
+        if (args.warm) and (epoch <= args.warm):
+            warmup_scheduler.step()
 
         # test for nat
         eval_nat_wodiff_metric = test(dataloader_test, model, use_diffusion=False, device=device)
-
         # test for ood
         if epoch < 100:
             eval_per_epoch = 20
@@ -55,8 +52,8 @@ def run_ladiff(model):
             
         if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
             eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)     
-
+            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
+        
         # test for adv
         # eval_ood_wodiff_metric = test(dataloader_test, model, use_diffusion=False, attacker=attack_eval, device=device)
         #eval_ood_endiff_metric = test_ensemble(dataloader_test, model, ensemble_iter=args.ensemble_iter_eval, attacker=attack_eval, device=device)
@@ -97,7 +94,6 @@ def run_ladiff(model):
                     train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
         logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
-
         logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
                     eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
@@ -276,10 +272,7 @@ if 'ladiff' in args.protocol:
     optimizerDiff = torch.optim.Adam(diffusion_params,lr=args.lrDiff)
 
 # schedulers
-scheduler_pack = get_scheduler(args, opt=optimizerC)
-scheduler_name = scheduler_pack[0]
-scheduler = scheduler_pack[1]
-
+scheduler = get_scheduler(args, opt=optimizerC)
 if args.warm:
     iter_per_epoch = len(dataloader_train)
     warmup_scheduler = WarmUpLR(optimizerC, iter_per_epoch * args.warm)
@@ -300,8 +293,6 @@ if args.resume_file:
     del checkpoint
     
 
-#print('aaaa','/'.join(args.save_dir.split('/')[:-1]))
-
 # main train
 if 'ladiff' in args.protocol:
     run_ladiff(model = model)
@@ -309,44 +300,4 @@ elif 'fixdiff' in args.protocol:
     run_standard(model = model)
 elif args.protocol == 'standard':
     run_standard(model = model)
-
-
-    
-
-# import os
-# import json
-# import torch
-# from core.utils import set_seed
-# from core.models import create_model
-# from core.testfn import final_corr_eval
-# from core.parse import parser_test
-# from core.utils import set_seed, get_logger, get_logger_name
-# from core.data import corruptions, get_cifar10_numpy
-
-# args_test = parser_test()
-# args_test.ckpt_path = '/'.join(args.save_dir.split('/')[:-1])
-
-# with open(os.path.join(args_test.ckpt_path,'train/args.txt'), 'r') as f:
-#     old = json.load(f)
-#     args_test.__dict__ = dict(vars(args_test), **old)
-
-# set_seed(args_test.seed)
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# model = create_model(args_test.data, args_test.backbone, args_test.protocol)
-# model = model.to(device)
-# checkpoint = torch.load(os.path.join(args_test.ckpt_path,'train',args_test.load_ckpt+'.pt'))
-# model.load_state_dict(checkpoint['model_state_dict'])
-# model.eval()
-# del checkpoint
-
-
-
-# x_corrs, y_corrs, _, _ = get_cifar10_numpy()
-# logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
-# logger.info("not use diffusion..")
-# final_corr_eval(x_corrs, y_corrs, model, use_diffusion=False, corruptions=corruptions, logger=logger)
-# logger.info("use diffusion..")
-# final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)
-
-
 

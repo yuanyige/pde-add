@@ -178,21 +178,16 @@ class ResNet(nn.Module):
     
     def forward(self, x, use_diffusion=True):
         if self.training:
-            #print('training........')
             out = self.net(x, use_diffusion=use_diffusion)
-            #out = F.log_softmax(out, dim=1)
         else:
-            #print('evaling........')
             if use_diffusion:
                 proba = 0 
                 for k in range(10):  
                     out = self.net(x, use_diffusion=True)
-                    #p = F.softmax(out, dim=1)
                     proba = proba + out
-                out = proba/10 # next nll
+                out = proba/10 
             else:
                 out = self.net(x, use_diffusion=False)
-                #out = F.log_softmax(out, dim=1)
         return out
 
 
@@ -211,12 +206,6 @@ def ladiff_resnet(name, num_classes=100, pretrained=False, device='cpu'):
     """
     if name == 'resnet-18':
         return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
-    elif name == 'resnet-34':
-        return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes)
-    # elif name == 'resnet-50':
-    #     return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes)
-    # elif name == 'resnet-101':
-    #     return ResNet(Bottleneck, [3, 4, 23, 3], num_classes=num_classes)
-    
-    raise ValueError('Only resnet-18, resnet-34, resnet-50 and resnet-101 are supported!')
-    return
+    else:
+        raise ValueError('Only resnet-18 is supported!')
+

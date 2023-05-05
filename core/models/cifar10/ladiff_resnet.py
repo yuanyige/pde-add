@@ -140,7 +140,6 @@ class ResNet(nn.Module):
         return out
     
     def forward(self, x, use_diffusion=True):
-    
         if self.training:
             out = self.net(x, use_diffusion=use_diffusion)
         else:
@@ -153,20 +152,6 @@ class ResNet(nn.Module):
             else:
                 out = self.net(x, use_diffusion=False)
         return out
-
-
-# class classifier(nn.Module):
-
-#     def __init__(self, num_classes=10, device='cpu'):
-#         super(ResNet, self).__init__()
-#         self.linear = nn.Linear(512, num_classes)
-
-#     def forward(self, input):
-#         out = F.avg_pool2d(input, 4)
-#         out = out.view(out.size(0), -1)
-#         out = self.linear(out)
-#         return out
-    
 
 
 
@@ -189,17 +174,4 @@ def ladiff_resnet(name, num_classes=10, pretrained=False, device='cpu'):
     raise ValueError('Only resnet18, resnet34, resnet50 and resnet101 are supported!')
 
 
-
-
-
-
-
-# res18 = resnet('resnet18')
-# print(res18)
-# test = torch.randn(1,3,32,32)
-# o = res18(test)
-
-# d = Discriminator(512)
-# a = torch.randn(1,512,4,4)
-# print(d(a))
 

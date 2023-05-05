@@ -9,8 +9,7 @@ from core.context import ctx_noparamgrad_and_eval
 nll_loss = nn.GaussianNLLLoss()
 
 def train_ladiff_augdiff(dataloader_train, model,
-                 optimizerDiff, optimizerC, scheduler_pack,
-                 augmentor=None, attacker=None,
+                 optimizerDiff, optimizerC, augmentor=None, attacker=None,
                  device=None, visualize=False, epoch=None):
 
     print("ladiff_augdiff..")
@@ -20,12 +19,7 @@ def train_ladiff_augdiff(dataloader_train, model,
     model.train()
     
 
-    for i, (x, y) in enumerate(dataloader_train):
-
-        if scheduler_pack[0] == 'piecewise':
-            lr = scheduler_pack[1](epoch - 1 + (i + 1) / len(dataloader_train))  # epoch - 1 since the 0th epoch is skipped
-            optimizerC.param_groups[0].update(lr=lr)
-    
+    for x, y in dataloader_train:
         if_visualize = (True*visualize) if batch_index==0 else (False*visualize)
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)
@@ -56,27 +50,22 @@ def train_ladiff_augdiff(dataloader_train, model,
         # out_aug = model(x_aug, use_diffusion = True)
         # out = model(x, use_diffusion = True)
         # optimizerC.zero_grad()
-        # lossC =  F.cross_entropy(out_aug, y) + F.cross_entropy(out, y)
+        # lossC =  F.nll_loss(out_aug, y) + F.nll_loss(out, y)
         # lossC.backward()
         # optimizerC.step()
 
         x_all = torch.cat((x, x_aug), dim=0)
         y_all = torch.cat((y, y), dim=0)
         out = model(x_all, use_diffusion = True)
-        out_aug = model(x_aug, use_diffusion = False)
         optimizerC.zero_grad()
-
         lossC =  F.cross_entropy(out, y_all, label_smoothing=0.1) #
-
         lossC.backward()
         optimizerC.step()
 
 
         batch_metric["train_loss_nll"] = lossDiff.data.item()
         batch_metric["train_loss_cla"] = lossC.data.item()
-
         batch_metric["train_acc"] = (torch.softmax(out.data, dim=1).argmax(dim=1) == y_all.data).sum().data.item()
-
         batch_metric["scales1"] =  model.scales[0]
         batch_metric["scales2"] =  model.scales[1]
         batch_metric["scales3"] =  model.scales[2]
@@ -89,7 +78,7 @@ def train_ladiff_augdiff(dataloader_train, model,
     return dict(metrics.agg({
             "train_loss_nll":"mean",
             "train_loss_cla":"mean",
-            "train_acc":lambda x:100*sum(x)/(2*len(dataloader_train.dataset)),
+            "train_acc":lambda x:100*sum(x)/len(dataloader_train.dataset),
             "scales1":"mean","scales2":"mean","scales3":"mean","scales4":"mean"}))
 
 
@@ -99,7 +88,6 @@ def train_ladiff_oridiff(dataloader_train, model,
                  device=None, visualize=False, epoch=None):
         
     print("ladiff_oridiff..")
-
 
     metrics = pd.DataFrame()
     batch_index = 0
@@ -131,16 +119,13 @@ def train_ladiff_oridiff(dataloader_train, model,
 
         out_fake = model(x, use_diffusion = True)
         optimizerC.zero_grad()
-
-        lossC = F.cross_entropy(out_fake, y) #label_smoothing=0.1
-
+        lossC = F.cross_entropy(out_fake, y, label_smoothing=0.1) #
         lossC.backward()
         optimizerC.step()
 
         batch_metric["train_loss_nll"] = lossDiff.data.item()
         batch_metric["train_loss_cla"] = lossC.data.item()
         batch_metric["train_acc"] = (torch.softmax(out_fake.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
-
         batch_metric["scales1"] =  model.scales[0]
         batch_metric["scales2"] =  model.scales[1]
         batch_metric["scales3"] =  model.scales[2]
@@ -188,13 +173,11 @@ def train_standard(dataloader_train, model, optimizer,
         out = model(x)
         optimizer.zero_grad()
         loss =  F.cross_entropy(out, y) 
-
         loss.backward()
         optimizer.step()
 
         batch_metric["train_loss"] = loss.data.item()
         batch_metric["train_acc"] = (torch.softmax(out.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
-
         metrics = pd.concat([metrics, pd.DataFrame(batch_metric, index=[0])], ignore_index=True)
 
         batch_index += 1

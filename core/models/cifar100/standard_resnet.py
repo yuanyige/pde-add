@@ -124,34 +124,7 @@ class ResNet(nn.Module):
         output = self.avg_pool(output)
         output = output.view(output.size(0), -1)
         output = self.fc(output)
-        #output = F.log_softmax(output,dim=1)
-
         return output
-
-# def resnet18():
-#     """ return a ResNet 18 object
-#     """
-#     return ResNet(BasicBlock, [2, 2, 2, 2])
-
-# def resnet34():
-#     """ return a ResNet 34 object
-#     """
-#     return ResNet(BasicBlock, [3, 4, 6, 3])
-
-# def resnet50():
-#     """ return a ResNet 50 object
-#     """
-#     return ResNet(BottleNeck, [3, 4, 6, 3])
-
-# def resnet101():
-#     """ return a ResNet 101 object
-#     """
-#     return ResNet(BottleNeck, [3, 4, 23, 3])
-
-# def resnet152():
-#     """ return a ResNet 152 object
-#     """
-#     return ResNet(BottleNeck, [3, 8, 36, 3])
 
 
 def standard_resnet(name, num_classes=100, pretrained=False, device='cpu'):
@@ -168,12 +141,6 @@ def standard_resnet(name, num_classes=100, pretrained=False, device='cpu'):
     """
     if name == 'resnet-18':
         return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes)
-    elif name == 'resnet-34':
-        return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes)
-    # elif name == 'resnet-50':
-    #     return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes)
-    # elif name == 'resnet-101':
-    #     return ResNet(Bottleneck, [3, 4, 23, 3], num_classes=num_classes)
-    
-    raise ValueError('Only resnet-18, resnet-34, resnet-50 and resnet-101 are supported!')
-    return
+    else:
+        raise ValueError('Only resnet-18 is supported!')
+
