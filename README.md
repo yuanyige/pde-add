@@ -1,7 +1,7 @@
-# ladiff
+# PDE with Adaptive Distributional Diffusion
 
----
-### Training and Testing
+
+## Training and Testing
 ```
 bash ./scripts/run_ladiff_dall.sh    
 ```
