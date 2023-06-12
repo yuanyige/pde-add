@@ -119,7 +119,7 @@ def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, baselin
     for i in range(1, 6):
         for j, c in enumerate(corruptions):
             res[i-1, j] = clean_accuracy(model, use_diffusion, x_corrs[i][j].to(list(model.parameters())[0].device), y_corrs[i][j].to(list(model.parameters())[0].device))
-            #print(c, i, res[i-1, j])
+            print(c, i, res[i-1, j])
 
     frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corruptions)
     frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}

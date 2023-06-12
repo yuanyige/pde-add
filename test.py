@@ -32,14 +32,8 @@ if args_test.data == 'cifar10':
 elif args_test.data == 'cifar100':
     x_corrs, y_corrs, _, _ = get_cifar100_numpy(corr)
     baseline_accs = (0.7771,[0.5540,0.6465,0.5049,0.2418,0.6003,0.5545,0.5360,0.2302,0.3144,0.2548,0.5245,0.7372,0.5538,0.5231,0.6150],[0.4611,0.4040,0.3477,0.2207,0.3371,0.4430,0.3998,0.1111,0.1277,0.0662,0.2394,0.6656,0.1988,0.4420,0.5123])
-    
 else:
     raise
 
 logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
-logger.info("not use diffusion..")
-
 final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corr, baseline_accs=baseline_accs, logger=logger)
-
-# logger.info("use diffusion..")
-# final_corr_eval(x_corrs, y_corrs, model, use_diffusion=True, corruptions=corruptions, logger=logger)

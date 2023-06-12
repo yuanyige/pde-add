@@ -114,7 +114,7 @@ def run_pdeadd():
 
 
 
-def run_standard(model):
+def run_standard():
 
     writer = SummaryWriter(args.save_dir)
 

@@ -6,7 +6,7 @@ python train.py \
 --desc none \
 --backbone resnet-18 \
 --epoch 200 \
---save-dir test \
+--save-dir save \
 --npc-train all \
 --lrC 0.05 \
 --lrDiff 0.015 \

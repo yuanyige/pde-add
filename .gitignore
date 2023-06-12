@@ -1,6 +1,7 @@
 datasets
 exps_cifar10
 exps_cifar100
+test
 .others
 .DS_Store
 
