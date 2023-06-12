@@ -1,10 +1,12 @@
-# PDE with Adaptive Distributional Diffusion
+# PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion
 
 
-## Training and Testing
+## Training 
 ```
-bash ./scripts/run_ladiff_dall.sh    
+bash ./scripts/run_pdeadd.sh    
 ```
+
+## Testing
 ```
 bash ./scripts/run_test.sh    
 ```

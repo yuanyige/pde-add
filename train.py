@@ -7,7 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from core.models import create_model
-from core.trainfn import train_standard, train_ladiff
+from core.trainfn import train_standard, train_pdeadd
 from core.testfn import test
 from core.parse import parser_train
 from core.data import DataAugmentor, load_data, load_cifar_c
@@ -15,7 +15,7 @@ from core.utils import BestSaver, get_logger, set_seed, format_time, save_model,
 from core.scheduler import WarmUpLR, get_scheduler
 from core.attacks import create_attack
 
-def run_ladiff(model):  
+def run_pdeadd():  
 
     # writer
     writer = SummaryWriter(os.path.join(args.save_dir), comment='train', filename_suffix='train')
@@ -32,7 +32,7 @@ def run_ladiff(model):
         start = time.time()
         
         # train
-        train_metric = train_ladiff(args.protocol)(dataloader_train, model, optimizerDiff, optimizerC, 
+        train_metric = train_pdeadd(dataloader_train, model, optimizerDiff, optimizerC, 
                         augmentor=augmentor, attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
 
         if (args.scheduler != 'none') and (epoch > args.warm):
@@ -49,14 +49,22 @@ def run_ladiff(model):
             eval_per_epoch = 10
         else:
             eval_per_epoch = 1
+        
+        # verbose
+        logger.info('\n[Epoch {}] - Time taken: {}'.format(epoch, format_time(time.time()-start)))
+        logger.info('Train\t Acc: {:.2f}%, NLLLoss: {:.2f}, ClassLoss: {:.2f}'.format(
+                    train_metric['train_acc'],train_metric['train_loss_nll'],train_metric['train_loss_cla']))
+        logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
+                    train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
             
         if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
             eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
             eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
-        
-        # test for adv
-        # eval_ood_wodiff_metric = test(dataloader_test, model, use_diffusion=False, attacker=attack_eval, device=device)
-        #eval_ood_endiff_metric = test_ensemble(dataloader_test, model, ensemble_iter=args.ensemble_iter_eval, attacker=attack_eval, device=device)
+            logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
+            logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+                    eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
+                    eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
         
         # save tensorboard
         writer.add_scalar('train/lossDiff', train_metric['train_loss_nll'], epoch)
@@ -85,20 +93,6 @@ def run_ladiff(model):
             ], axis=1)
         total_metrics = pd.concat([total_metrics, metric], ignore_index=True)
         total_metrics.to_csv(os.path.join(args.save_dir, 'stats.csv'), index=True)
-        
-        # verbose
-        logger.info('\n[Epoch {}] - Time taken: {}'.format(epoch, format_time(time.time()-start)))
-        logger.info('Train\t Acc: {:.2f}%, NLLLoss: {:.2f}, ClassLoss: {:.2f}'.format(
-                    train_metric['train_acc'],train_metric['train_loss_nll'],train_metric['train_loss_cla']))
-        logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
-                    train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
-        logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
-        logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
-                    eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
-        # logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-        #     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss']))
         
 
         # save model
@@ -148,10 +142,6 @@ def run_standard(model):
         
         # test for ood
         eval_ood_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-
-        # test for adv
-        #eval_ood_metric = test_ensemble(dataloader_test, model, ensemble_iter=args.ensemble_iter_eval, attacker=attack_eval, device=device)
-
 
         # save tensorboard
         writer.add_scalar('train/lossC', train_metric['train_loss'], epoch)
@@ -264,7 +254,7 @@ logger.info('using evaluating attacker: {}'.format(args.atk_eval))
 
 # optimizers
 optimizerC = torch.optim.SGD(model.parameters(), lr=args.lrC, momentum=0.9, weight_decay=args.weight_decay)
-if 'ladiff' in args.protocol:
+if args.protocol == 'pdeadd':
     diffusion_params = []
     for name, param in model.named_parameters():
         if 'diff' in name:
@@ -294,10 +284,10 @@ if args.resume_file:
     
 
 # main train
-if 'ladiff' in args.protocol:
-    run_ladiff(model = model)
-elif 'fixdiff' in args.protocol:
-    run_standard(model = model)
+if args.protocol == 'pdeadd':
+    run_pdeadd()
 elif args.protocol == 'standard':
-    run_standard(model = model)
+    run_standard()
+else:
+    raise
 

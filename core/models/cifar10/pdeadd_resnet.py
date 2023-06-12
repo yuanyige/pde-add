@@ -155,7 +155,7 @@ class ResNet(nn.Module):
 
 
 
-def ladiff_resnet(name, num_classes=10, pretrained=False, device='cpu'):
+def pdeadd_resnet(name, num_classes=10, pretrained=False, device='cpu'):
     """
     Returns suitable Resnet model from its name.
     Arguments:

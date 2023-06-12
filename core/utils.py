@@ -47,7 +47,7 @@ def get_logger_name(ckpt_path, load_ckpt, task, severity=None, threat=None):
 
 
 def get_desc(args):
-    if 'ladiff' in args.protocol:
+    if args.protocol=='pdeadd':
         desc = "{}_{}-{}_ntr{}_(C{}lr{}{}-D{}lr{})_e{}_b{}_aug-{}_atk-{}".format(
                 args.backbone, args.protocol, 
                 args.desc, args.npc_train,  

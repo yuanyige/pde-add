@@ -21,8 +21,8 @@ def parser_train():
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
     
     # augmentation
-    parser.add_argument('--aug-train-inplace',  type=str, default="augmix", help='Data augmentation for training, replacing clean') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
-    parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') # choices=["gaublur-1-3", "elastic", "augmix", "augmix-6-4","randaug", "none"], 
+    parser.add_argument('--aug-train-inplace',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
+    parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') 
     parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=3, help='Data augmentation severity for evaluating')
 
     # attack
@@ -36,7 +36,7 @@ def parser_train():
 
     # model
     parser.add_argument('--backbone', type=str, choices=['resnet-18', 'wideresnet-16-4', 'preresnet-18'], default="resnet-18")
-    parser.add_argument('--protocol', type=str,  default="ladiff-augdiff") # choices=['standard', 'fixdiff', 'ladiff-augdiff', 'ladiff-oridiff']
+    parser.add_argument('--protocol', type=str,  default="pdeadd") 
     parser.add_argument('--pretrained-file', type=str, default=None, help='Pretrained weights file name.')
     parser.add_argument('--resume-file', type=str, default=None, help='Resumed file name.')
     parser.add_argument('--save-freq', type=int, default=50, help='Save per epochs.') 

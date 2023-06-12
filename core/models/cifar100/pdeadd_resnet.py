@@ -192,7 +192,7 @@ class ResNet(nn.Module):
 
 
 
-def ladiff_resnet(name, num_classes=100, pretrained=False, device='cpu'):
+def pdeadd_resnet(name, num_classes=100, pretrained=False, device='cpu'):
     print("cifar100..")
     """
     Returns suitable Resnet model from its name.
