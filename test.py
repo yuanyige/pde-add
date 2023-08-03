@@ -6,6 +6,7 @@ from core.testfn import final_corr_eval
 from core.parse import parser_test
 from core.utils import get_logger, get_logger_name
 from core.data import all_corruptions, corruptions, get_cifar10_numpy, get_cifar100_numpy
+from robustbench.data import load_imagenetc
 
 args_test = parser_test()
 

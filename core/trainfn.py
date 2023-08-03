@@ -1,6 +1,7 @@
 import pandas as pd 
 from collections import defaultdict
 
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,7 +18,7 @@ def train_pdeadd(dataloader_train, model,
     model.train()
     
 
-    for x, y in dataloader_train:
+    for x, y in tqdm(dataloader_train):
         if_visualize = (True*visualize) if batch_index==0 else (False*visualize)
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)
@@ -54,6 +55,8 @@ def train_pdeadd(dataloader_train, model,
 
         x_all = torch.cat((x, x_aug), dim=0)
         y_all = torch.cat((y, y), dim=0)
+        # x_all = x
+        # y_all = y
         out = model(x_all, use_diffusion = True)
         optimizerC.zero_grad()
         lossC =  F.cross_entropy(out, y_all, label_smoothing=0.1) #
@@ -89,7 +92,7 @@ def train_standard(dataloader_train, model, optimizer,
     batch_index = 0
     model.train()
 
-    for x, y in dataloader_train:
+    for x, y in tqdm(dataloader_train):
 
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)

@@ -56,12 +56,12 @@ def run_pdeadd():
                     train_metric['train_acc'],train_metric['train_loss_nll'],train_metric['train_loss_cla']))
         logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
                     train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
+        logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))     
             
         if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
             eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)
-            logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))        
+            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)   
             logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
                     eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
@@ -96,10 +96,10 @@ def run_pdeadd():
         
 
         # save model
-        wodiff_saver.apply(eval_ood_wodiff_metric['eval_acc'], epoch, 
+        wodiff_saver.apply(eval_nat_wodiff_metric['eval_acc'], epoch, 
                            model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
                            save_path=os.path.join(args.save_dir,'model-best-wodiff.pt'))
-        endiff_saver.apply(eval_ood_endiff_metric['eval_acc'], epoch, 
+        endiff_saver.apply(eval_nat_wodiff_metric['eval_acc'], epoch, 
                            model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
                            save_path=os.path.join(args.save_dir,'model-best-endiff.pt'))
         if (epoch!=0) and (epoch % args.save_freq==0):
@@ -213,14 +213,26 @@ with open(os.path.join(args.save_dir, 'args.txt'), 'w') as f:
 
 # dataloaders
 dataloader_train, dataloader_test = load_data(args)
-dataloader_test_ood = load_cifar_c(args.data, args.data_dir, args.batch_size_validation, dnum=60, severity=args.severity_eval, norm=args.norm)
+if args.data == 'tinyin200':
+    dataloader_test_ood = dataloader_test
+else:
+    dataloader_test_ood = load_cifar_c(args.data, args.data_dir, args.batch_size_validation, dnum=60, severity=args.severity_eval, norm=args.norm)
+
 logger.info('Using dataset: {}'.format(args.data))
-logger.info('Train data shape: {}, label shape: {}'.format(
-    dataloader_train.dataset.data.shape, len(dataloader_train.dataset.targets)))
-logger.info('Test data shape: {}, label shape: {}'.format(
-    dataloader_test.dataset.data.shape, len(dataloader_test.dataset.targets)))
-logger.info('Test ood data shape: {}, label shape: {}'.format(
-    dataloader_test_ood.dataset.data.shape, len(dataloader_test_ood.dataset.targets)))
+if args.data == 'tinyin200':
+    logger.info('Train data shape: {}, label shape: {}'.format(
+        len(dataloader_train.dataset.samples), len(dataloader_train.dataset.targets)))
+    logger.info('Test data shape: {}, label shape: {}'.format(
+        len(dataloader_test.dataset.samples), len(dataloader_test.dataset.targets)))
+    logger.info('Test ood data shape: {}, label shape: {}'.format(
+        len(dataloader_test_ood.dataset.samples), len(dataloader_test_ood.dataset.targets)))
+else:
+    logger.info('Train data shape: {}, label shape: {}'.format(
+        dataloader_train.dataset.data.shape, len(dataloader_train.dataset.targets)))
+    logger.info('Test data shape: {}, label shape: {}'.format(
+        dataloader_test.dataset.data.shape, len(dataloader_test.dataset.targets)))
+    logger.info('Test ood data shape: {}, label shape: {}'.format(
+        dataloader_test_ood.dataset.data.shape, len(dataloader_test_ood.dataset.targets)))  
 
 # device
 device = torch.device('cuda' if torch.cuda.is_available() else 'mps')
@@ -235,25 +247,29 @@ logger.info("using protocol: {}".format(args.protocol))
 
 
 # augmentor
+
 if args.aug_train == 'none':
     augmentor=None
 else:
     augmentor = DataAugmentor(args.aug_train, args.save_dir)
 logger.info('using training augmentors: {}'.format(args.aug_train))
 
-
 # attackers
-attack_train = create_attack(model, attack_type=args.atk_train, attack_eps=args.attack_eps, attack_iter=args.attack_iter, attack_step=args.attack_step, rand_init_type='uniform', save_path= args.save_dir)
+if args.atk_train == 'none':
+    attack_train = create_attack(model, attack_type=args.atk_train, attack_eps=args.attack_eps, attack_iter=args.attack_iter, attack_step=args.attack_step, rand_init_type='uniform', save_path= args.save_dir)
+else:
+    attack_train = None
 if args.atk_train =='none':
     attack_eval = create_attack(model, attack_type=args.atk_eval, attack_eps=args.attack_eps, attack_iter=2*args.attack_iter, attack_step=args.attack_step)
 else:
     attack_eval = create_attack(model, attack_type=args.atk_train, attack_eps=args.attack_eps, attack_iter=2*args.attack_iter, attack_step=args.attack_step)
 logger.info('using training attacker: {}'.format(args.atk_train))
 logger.info('using evaluating attacker: {}'.format(args.atk_eval))
-        
+       
 
 # optimizers
 optimizerC = torch.optim.SGD(model.parameters(), lr=args.lrC, momentum=0.9, weight_decay=args.weight_decay)
+#optimizerDiff = torch.optim.Adam(model.parameters(),lr=args.lrDiff)
 if args.protocol == 'pdeadd':
     diffusion_params = []
     for name, param in model.named_parameters():

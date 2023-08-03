@@ -100,6 +100,7 @@ class BestSaver():
         self.best_epoch=0
 
     def apply(self, acc, epoch, model, optimizerC, scheduler, optimizerDiff=None, save_path=None):
+        print("saving..")
         if acc > self.best_acc:
             self.best_acc = acc
             self.best_epoch = epoch

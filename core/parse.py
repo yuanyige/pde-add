@@ -16,7 +16,7 @@ def parser_train():
      
     # data 
     parser.add_argument('--data-dir', type=str, default='./datasets')
-    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100'], help='Data to use.')
+    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100','tinyin200'], help='Data to use.')
     parser.add_argument('--norm', action='store_true')
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
     

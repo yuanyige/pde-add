@@ -8,6 +8,10 @@ from .cifar10.pdeadd_resnet import pdeadd_resnet as pdeadd_resnet_cifar10
 from .cifar100.standard_resnet import standard_resnet as standard_resnet_cifar100
 from .cifar100.pdeadd_resnet import pdeadd_resnet as pdeadd_resnet_cifar100
 
+from .tinyin200.standard_resnet import standard_resnet as standard_resnet_tinyin200
+from .tinyin200.pdeadd_resnet import pdeadd_resnet as pdeadd_resnet_tinyin200
+
+
 def create_model(data, backbone, protocol):
 
     net = backbone.split('-')[0]

@@ -6,7 +6,8 @@ import numpy as np
 import torch
 from torchvision.utils import save_image
 from torchvision.transforms.functional import convert_image_dtype
-from robustbench.data import load_cifar10c, load_cifar10, load_cifar100c, load_cifar100
+from robustbench.data import load_cifar10c, load_cifar10, load_cifar100c, load_cifar100, load_imagenetc
+
 
 CIFAR10_TRAIN_MEAN = (0.4914, 0.4822, 0.4465)
 CIFAR10_TRAIN_STD = (0.2023, 0.1994, 0.2010)
@@ -36,19 +37,28 @@ def split_small_dataset(num, tar, num_class):
 
 def load_data(args):
     
-    transform_eval = T.Compose([T.ToTensor()])
     if args.aug_train_inplace == 'none':
-        transform_train = T.Compose([
-                        T.RandomCrop(32, padding=4), 
-                        T.RandomHorizontalFlip(),
-                        T.ToTensor()])
+        transform_train =[T.Resize(32), 
+                          T.RandomCrop(32, padding=4),
+                          T.RandomHorizontalFlip(),
+                          T.ToTensor()]
     else:
         aug_type = args.aug_train_inplace.split('-')[0]
-        transform_train = T.Compose([
-                                T.RandomCrop(32, padding=4), 
-                                T.RandomHorizontalFlip(),
-                                aug_mapping[aug_type](),
-                                T.ToTensor()])
+        transform_train = [ T.Resize(32), 
+                            T.RandomCrop(32, padding=4), 
+                            T.RandomHorizontalFlip(),
+                            aug_mapping[aug_type](),
+                            T.ToTensor()]
+    
+    transform_eval = [T.Resize(32), T.ToTensor()]
+
+    if args.data == 'tinyin200':
+        normalize = T.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
+        transform_train.append(normalize)
+        transform_eval.append(normalize)
+    
+    transform_train = T.Compose(transform_train)
+    transform_eval = T.Compose(transform_eval)
 
     if args.data.lower() == 'mnist':
         data_train = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform=transform_train,train = True, download = True)
@@ -59,6 +69,9 @@ def load_data(args):
     elif args.data.lower() == 'cifar100':
         data_train = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform=transform_train,train = True, download = True)
         data_test = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform = transform_eval,train = False)
+    elif args.data.lower() == 'tinyin200':
+        data_train = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'train'), transform=transform_train)
+        data_test = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'val'), transform=transform_eval)
     else:
         raise
     
@@ -67,8 +80,8 @@ def load_data(args):
         data_train.data = data_train.data[index]
         data_train.targets = np.array(data_train.targets)[index].tolist()
 
-    dataloader_train = torch.utils.data.DataLoader(dataset=data_train, batch_size=args.batch_size, shuffle = True, num_workers=1, pin_memory=True)
-    dataloader_test = torch.utils.data.DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=1, pin_memory=True)
+    dataloader_train = torch.utils.data.DataLoader(dataset=data_train, batch_size=args.batch_size, shuffle = True, num_workers=0, pin_memory=True)
+    dataloader_test = torch.utils.data.DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=0, pin_memory=True)
 
     return dataloader_train, dataloader_test
 
@@ -239,20 +252,25 @@ def load_cifar_c(data_name, data_dir, batch_size, cname=None, dnum='all', severi
 
     transform = T.Compose([T.ToTensor()])
 
-    if data_name == 'cifar10':
-        filename = "CIFAR-10-C"
-    elif data_name == 'cifar100':
-        filename = "CIFAR-100-C"
 
-    if dnum =='all': 
-        data_cifar10c = CIFARC(os.path.join(data_dir, filename), cname, transform=transform, dnum='all', severity=severity)  
-        dataloader_cifar10c = torch.utils.data.DataLoader(data_cifar10c, batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True)
-    else:
-        data_cifar10c = CIFARC(os.path.join(data_dir, filename), transform=transform, dnum=dnum, severity=severity)  
-        dataloader_cifar10c = torch.utils.data.DataLoader(data_cifar10c, batch_size=batch_size, shuffle=False, num_workers=1, pin_memory=True)
+
+    if data_name in ['cifar10','cifar100']:
+        if data_name == 'cifar10':
+            filename = "CIFAR-10-C"
+        elif data_name == 'cifar100':
+            filename = "CIFAR-100-C"
+        
+        if dnum =='all': 
+            data = CIFARC(os.path.join(data_dir, filename), cname, transform=transform, dnum='all', severity=severity)  
+            dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=10, pin_memory=True)
+        else:
+            data = CIFARC(os.path.join(data_dir, filename), transform=transform, dnum=dnum, severity=severity)  
+            dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=10, pin_memory=True)
     
-    return dataloader_cifar10c   
-
-
+    # elif data_name == 'tinyin200':
+    #     data = datasets.ImageFolder(os.path.join(data_dir, 'Tiny-ImageNet-C', cname, severity), transform=transform_eval)
+    #     dataloader = torch.utils.data.DataLoader(dataset=data, batch_size=batch_size, shuffle = False, num_workers=0, pin_memory=True)
+    
+    return dataloader   
 
 

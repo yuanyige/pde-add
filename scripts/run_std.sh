@@ -1,15 +1,15 @@
-CUDA_VISIBLE_DEVICES=5 \
+CUDA_VISIBLE_DEVICES=4 \
 python train.py \
---data cifar100 \
+--data tinyin200 \
 --protocol standard \
 --desc standard \
 --backbone resnet-18 \
 --epoch 200 \
---save-dir save \
+--save-dir save_tin200 \
 --npc-train all \
---lrC 0.05 \
+--lrC 0.01 \
 --schedule cosanlr \
---aug-train-inplace none \
+--aug-train-inplace augmix-10-10 \
 --aug-train none \
 --atk-train none \
 --atk-eval none \
