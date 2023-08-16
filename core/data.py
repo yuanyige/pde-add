@@ -1,31 +1,19 @@
 import os
+import random
 from PIL import Image
-import torchvision.transforms as T
-from torchvision import datasets
 import numpy as np
 import torch
-from torchvision.utils import save_image
-from torchvision.transforms.functional import convert_image_dtype
-from robustbench.data import load_cifar10c, load_cifar10, load_cifar100c, load_cifar100, load_imagenetc
+import torchvision.transforms as T
+from torchvision import datasets
+from torch.utils.data import Sampler, DataLoader
 
+corruption_19=[ 'snow', 'fog', 'frost', 'glass_blur', 'defocus_blur','motion_blur','zoom_blur','gaussian_blur',
+                  'gaussian_noise','shot_noise','impulse_noise','speckle_noise',
+                  'pixelate','brightness','contrast','jpeg_compression','elastic_transform','spatter','saturate']
 
-CIFAR10_TRAIN_MEAN = (0.4914, 0.4822, 0.4465)
-CIFAR10_TRAIN_STD = (0.2023, 0.1994, 0.2010)
-
-CIFAR100_TRAIN_MEAN = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
-CIFAR100_TRAIN_STD = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
-
-
-aug_mapping = { "gaublur":T.GaussianBlur, 
-                "elastic":T.ElasticTransform,
-                "contrast":T.RandomAutocontrast,
-                "invert":T.RandomInvert,
-                "color":T.ColorJitter,
-                "rotation":T.RandomRotation,
-                "augmix":T.AugMix,
-                "randaug":T.RandAugment,
-                "autoaug":T.AutoAugment}
-
+corruption_15 = ['snow', 'fog', 'frost', 'glass_blur', 'defocus_blur', 'motion_blur','zoom_blur', 
+               'gaussian_noise', 'shot_noise', 'impulse_noise',
+               'pixelate', 'brightness', 'contrast','jpeg_compression', 'elastic_transform']
 
 def split_small_dataset(num, tar, num_class):
     index = []
@@ -34,152 +22,116 @@ def split_small_dataset(num, tar, num_class):
         index.extend(l)
     return index
 
+class Identity(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x):
+        return x
 
-def load_data(args):
+class FixSampler(Sampler):
+    def __init__(self, dataset):
+        length = int(len(dataset))
+        self.indices = list(range(length))
+        random.Random(1).shuffle(self.indices) 
+    def __iter__(self):
+        return iter(self.indices)
+
+class Augmentor(torch.nn.Module):
+    def __init__(self, augments):
+        super().__init__()
+        self.augments=augments
+        self.mapping = {
+            "gaublur":T.GaussianBlur, 
+            "elastic":T.ElasticTransform,
+            "contrast":T.RandomAutocontrast,
+            "invert":T.RandomInvert,
+            "color":T.ColorJitter,
+            "rotation":T.RandomRotation,
+            "augmix":T.AugMix,
+            "randaug":T.RandAugment,
+            "autoaug":T.AutoAugment,
+            "none":Identity}  
+
+    def forward(self, img):
+        type, param = self.split_string()
+        return self.mapping[type](*param)(img)
     
-    if args.aug_train_inplace == 'none':
-        transform_train =[T.Resize(32), 
-                          T.RandomCrop(32, padding=4),
-                          T.RandomHorizontalFlip(),
-                          T.ToTensor()]
-    else:
-        aug_type = args.aug_train_inplace.split('-')[0]
-        transform_train = [ T.Resize(32), 
-                            T.RandomCrop(32, padding=4), 
-                            T.RandomHorizontalFlip(),
-                            aug_mapping[aug_type](),
-                            T.ToTensor()]
-    
-    transform_eval = [T.Resize(32), T.ToTensor()]
-
-    if args.data == 'tinyin200':
-        normalize = T.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
-        transform_train.append(normalize)
-        transform_eval.append(normalize)
-    
-    transform_train = T.Compose(transform_train)
-    transform_eval = T.Compose(transform_eval)
-
-    if args.data.lower() == 'mnist':
-        data_train = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform=transform_train,train = True, download = True)
-        data_test = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform = transform_eval,train = False)
-    elif args.data.lower() == 'cifar10':
-        data_train = datasets.CIFAR10(root=os.path.join(args.data_dir, 'cifar10'), transform=transform_train,train = True, download = True)
-        data_test = datasets.CIFAR10(root=os.path.join(args.data_dir, 'cifar10'), transform = transform_eval,train = False)
-    elif args.data.lower() == 'cifar100':
-        data_train = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform=transform_train,train = True, download = True)
-        data_test = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform = transform_eval,train = False)
-    elif args.data.lower() == 'tinyin200':
-        data_train = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'train'), transform=transform_train)
-        data_test = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'val'), transform=transform_eval)
-    else:
-        raise
-    
-    if args.npc_train != 'all':
-        index = split_small_dataset(num=int(args.npc_train), tar = data_train.targets, num_class=len(data_train.classes))
-        data_train.data = data_train.data[index]
-        data_train.targets = np.array(data_train.targets)[index].tolist()
-
-    dataloader_train = torch.utils.data.DataLoader(dataset=data_train, batch_size=args.batch_size, shuffle = True, num_workers=0, pin_memory=True)
-    dataloader_test = torch.utils.data.DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=0, pin_memory=True)
-
-    return dataloader_train, dataloader_test
-
-
-class DataAugmentor():
-    def __init__(self, augments, save_path=None, name=''):
-        augments = augments.split('-')
-        self.aug_type = augments[0]
-        self.aug_param = []
+    def split_string(self):
+        augments = self.augments.split('-')
+        type = augments[0]
+        param = []
         if len(augments) > 1:
             for p in augments[1:]:
                 if '.' in p:
                     p = float(p)
                 else:
                     p = int(p)
-                self.aug_param.append(p)
-
-        self.aug_mapping = aug_mapping
-        self.save_path = save_path
-        self.name=name
+                param.append(p)
+        return type, param
     
-    def apply(self, x, visualize=False):
-        x_ori = x
-        augmentor = self.aug_mapping[self.aug_type](*self.aug_param)
-        x = augmentor(convert_image_dtype(x, torch.uint8))
-        x = convert_image_dtype(x, torch.float)
-        
-        if visualize:
-            self.vis(x_ori, x)
-        return x
+def load_dataloader(args):
+    # define transforms
+    transform_train = [ T.Resize(32), 
+                        T.RandomCrop(32, padding=4), 
+                        T.RandomHorizontalFlip(),
+                        Augmentor(args.aug_train),
+                        T.ToTensor()]
+    transform_train_ood = [ T.Resize(32), 
+                        T.RandomCrop(32, padding=4), 
+                        T.RandomHorizontalFlip(),
+                        Augmentor(args.aug_train_diff),
+                        T.ToTensor()]
+    transform_eval = [T.Resize(32), T.ToTensor()]
+    transform_train = T.Compose(transform_train)
+    transform_train_ood = T.Compose(transform_train_ood)
+    transform_eval = T.Compose(transform_eval)
+
+    # load train & test data
+    if args.data.lower() == 'mnist':
+        data_train = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform=transform_train,train = True, download = True)
+        data_test = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform = transform_eval,train = False)
+    elif args.data.lower() == 'cifar10':
+        data_train = datasets.CIFAR10(root=os.path.join(args.data_dir, 'cifar10'), transform=transform_train, train = True, download = True)
+        data_test = datasets.CIFAR10(root=os.path.join(args.data_dir, 'cifar10'), transform = transform_eval, train = False)
+    elif args.data.lower() == 'cifar100':
+        data_train = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform=transform_train,train = True, download = True)
+        data_test = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform = transform_eval,train = False)
+    elif args.data.lower() == 'tin200':
+        data_train = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'train'), transform=transform_train)
+        data_test = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'val'), transform=transform_eval)
+    else:
+        raise
     
-    def vis(self, x_ori, x_aug):
-        x=torch.cat([x_ori[:8],x_aug[:8]])
-        save_image(x.cpu(), os.path.join(self.save_path,'ood-{}{}.png'.format(self.aug_type, self.name)), nrow=8,
-            padding=0, value_range=(0, 1), pad_value=0)
+    # load ood train data for pde-add
+    if args.data_diff is not None:
+        if args.data_diff.lower() == 'mnist':
+            data_train_diff = datasets.MNIST(root=os.path.join(args.data_dir, 'mnist') ,transform=transform_train_ood, train = True, download = True)
+        elif args.data_diff.lower() == 'cifar10':
+            data_train_diff = datasets.CIFAR10(root=os.path.join(args.data_dir, 'cifar10'), transform=transform_train_ood, train = True, download = True)
+        elif args.data_diff.lower() == 'cifar100':
+            data_train_diff = datasets.CIFAR100(root=os.path.join(args.data_dir, 'cifar100'), transform=transform_train_ood, train = True, download = True)
+        elif args.data_diff.lower() == 'tin200':
+            data_train_diff = datasets.ImageFolder(os.path.join(args.data_dir, 'tiny-imagenet-200', 'train'), transform=transform_train_ood)
+        else:
+            raise
 
+    if args.npc_train != 'all':
+        index = split_small_dataset(num=int(args.npc_train), tar = data_train.targets, num_class=len(data_train.classes))
+        data_train.data = data_train.data[index]
+        data_train.targets = np.array(data_train.targets)[index].tolist()
+        if args.data_diff is not None:
+            data_train_diff.data = data_train_diff.data[index]
+            data_train_diff.targets = np.array(data_train_diff.targets)[index].tolist()
 
-all_corruptions=[ 'snow', 'fog', 'frost', 'glass_blur', 'defocus_blur','motion_blur','zoom_blur','gaussian_blur',
-                  'gaussian_noise','shot_noise','impulse_noise','speckle_noise',
-                  'pixelate','brightness','contrast','jpeg_compression','elastic_transform','spatter','saturate']
+    sampler = FixSampler(data_train)
+    dataloader_train =  DataLoader(dataset=data_train, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=0, pin_memory=False)
+    if args.data_diff is not None:
+        dataloader_train_diff =  DataLoader(dataset=data_train_diff, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=0, pin_memory=False)
+    else:
+        dataloader_train_diff = None
+    dataloader_test =  DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=0, pin_memory=False)
 
-corruptions = ['snow', 'fog', 'frost', 'glass_blur', 'defocus_blur', 'motion_blur','zoom_blur', 
-               'gaussian_noise', 'shot_noise', 'impulse_noise',
-               'pixelate', 'brightness', 'contrast','jpeg_compression', 'elastic_transform']
-
-def get_cifar10_numpy(the_corruptions):
-    x_clean, y_clean = load_cifar10(n_examples=10000, data_dir='./datasets/cifar10')
-    x_corrs = []
-    y_corrs = []
-    x_corrs.append(x_clean)
-    y_corrs.append(y_clean)
-    for i in range(1, 6):
-        x_corr = []
-        y_corr = []
-        for j, corr in enumerate(the_corruptions):
-            x_, y_ = load_cifar10c(n_examples=10000, data_dir='./datasets/', severity=i, corruptions=(corr,))
-            x_corr.append(x_)
-            y_corr.append(y_)
-
-        x_corrs.append(x_corr)
-        y_corrs.append(y_corr)
-
-    x_corrs_fast = []
-    y_corrs_fast = []
-    for i in range(1, 6):
-        x_, y_ = load_cifar10c(n_examples=1000, data_dir='./datasets/', severity=i, shuffle=True)
-        x_corrs_fast.append(x_)
-        y_corrs_fast.append(y_)
-
-    return x_corrs, y_corrs, x_corrs_fast, y_corrs_fast
-
-
-def get_cifar100_numpy(the_corruptions):
-    x_clean, y_clean = load_cifar100(n_examples=10000, data_dir='./datasets/cifar100')
-    x_corrs = []
-    y_corrs = []
-    x_corrs.append(x_clean)
-    y_corrs.append(y_clean)
-    for i in range(1, 6):
-        x_corr = []
-        y_corr = []
-        for j, corr in enumerate(the_corruptions):
-            x_, y_ = load_cifar100c(n_examples=10000, data_dir='./datasets/', severity=i, corruptions=(corr,))
-            x_corr.append(x_)
-            y_corr.append(y_)
-
-        x_corrs.append(x_corr)
-        y_corrs.append(y_corr)
-
-    x_corrs_fast = []
-    y_corrs_fast = []
-    for i in range(1, 6):
-        x_, y_ = load_cifar100c(n_examples=1000, data_dir='./datasets/', severity=i, shuffle=True)
-        x_corrs_fast.append(x_)
-        y_corrs_fast.append(y_)
-
-    return x_corrs, y_corrs, x_corrs_fast, y_corrs_fast
-
+    return dataloader_train,  dataloader_train_diff, dataloader_test
 
 class CIFARC(datasets.VisionDataset):
     def __init__(self, root :str, name=None,
@@ -206,7 +158,7 @@ class CIFARC(datasets.VisionDataset):
             self.data = []
             self.targets = []
 
-            for n in corruptions:   
+            for n in corruption_15:   
                 data_path = os.path.join(root, n + '.npy')
                 target_path = os.path.join(root, 'labels.npy')
                 
@@ -222,7 +174,6 @@ class CIFARC(datasets.VisionDataset):
             
             self.data = np.concatenate(self.data, axis=0)
             self.targets = np.concatenate(self.targets, axis=0)
-
         
     def __getitem__(self, index):
         img, targets = self.data[index], self.targets[index]
@@ -231,46 +182,26 @@ class CIFARC(datasets.VisionDataset):
         if self.transform is not None:
             img = self.transform(img)
         if self.target_transform is not None:
-            targets = self.target_transform(targets)
-            
+            targets = self.target_transform(targets) 
         return img, targets
     
     def __len__(self):
         return len(self.data)
 
-
-
-def load_cifar_c(data_name, data_dir, batch_size, cname=None, dnum='all', severity=0, norm=False):
-    """
-    Returns CIFAR10 train, test datasets and dataloaders.
-    Arguments:
-        data_dir (str): path to data directory.
-        use_augmentation (bool): whether to use augmentations for training set.
-    Returns:
-        train dataset, test dataset. 
-    """
-
-    transform = T.Compose([T.ToTensor()])
-
-
-
+def load_corr_dataloader(data_name, data_dir, batch_size, cname=None, dnum='all', severity=0, norm=False):
+    transform = T.Compose([T.Resize(32),T.ToTensor()])
     if data_name in ['cifar10','cifar100']:
-        if data_name == 'cifar10':
-            filename = "CIFAR-10-C"
-        elif data_name == 'cifar100':
-            filename = "CIFAR-100-C"
-        
+        filename = '-'.join(['CIFAR', data_name[5:], 'C'])   
         if dnum =='all': 
             data = CIFARC(os.path.join(data_dir, filename), cname, transform=transform, dnum='all', severity=severity)  
-            dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=10, pin_memory=True)
+            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=False)
         else:
             data = CIFARC(os.path.join(data_dir, filename), transform=transform, dnum=dnum, severity=severity)  
-            dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=10, pin_memory=True)
-    
-    # elif data_name == 'tinyin200':
-    #     data = datasets.ImageFolder(os.path.join(data_dir, 'Tiny-ImageNet-C', cname, severity), transform=transform_eval)
-    #     dataloader = torch.utils.data.DataLoader(dataset=data, batch_size=batch_size, shuffle = False, num_workers=0, pin_memory=True)
-    
+            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=False)
+    elif data_name == 'tin200':
+        severity = str(severity)
+        data = datasets.ImageFolder(os.path.join(data_dir, 'Tiny-ImageNet-C', cname, severity), transform=transform)
+        dataloader =  DataLoader(dataset=data, batch_size=batch_size, shuffle = False, num_workers=0, pin_memory=False)
+    else:
+        raise
     return dataloader   
-
-

@@ -1,12 +1,16 @@
+import math
+import numpy as np
 import pandas as pd 
+from autoattack import AutoAttack
+
 import torch
 import torch.nn.functional as F
 from collections import defaultdict
 from core.context import ctx_noparamgrad_and_eval
-from core.data import load_data
-from autoattack import AutoAttack
-import numpy as np
-import math
+from core.data import load_dataloader
+
+
+
 from torchmetrics.functional.classification import multiclass_calibration_error
 
 
@@ -148,7 +152,7 @@ def final_corr_eval(x_corrs, y_corrs, model, use_diffusion, corruptions, baselin
 
 def run_final_test_autoattack(model, args_test, logger, device):
     
-    _, loader_test = load_data(args_test)
+    _, loader_test = load_dataloader(args_test)
 
     l = [x for (x, y) in loader_test]
     x_test = torch.cat(l, 0)

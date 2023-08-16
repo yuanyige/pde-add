@@ -1,20 +1,16 @@
-CUDA_VISIBLE_DEVICES=2 \
+CUDA_VISIBLE_DEVICES=5 \
 python train.py \
---data tinyin200 \
+--data cifar10 \
+--data-diff cifar10 \
 --seed 3407 \
 --protocol pdeadd \
---desc norm-inplace \
+--desc none \
 --backbone resnet-18 \
 --epoch 200 \
---save-dir save_tin200 \
+--save-dir save_cifar10_new \
 --npc-train all \
 --lrC 0.05 \
 --lrDiff 0.017 \
 --schedule cosanlr \
---aug-train-inplace augmix-10-10 \
 --aug-train augmix-10-10 \
---atk-train none \
---atk-eval none \
---severity-eval 5
-
-
+--aug-train-diff augmix-10-10 

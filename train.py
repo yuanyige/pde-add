@@ -1,6 +1,7 @@
 import os
 import time
 import json
+from collections import defaultdict
 
 import pandas as pd 
 import torch
@@ -10,175 +11,9 @@ from core.models import create_model
 from core.trainfn import train_standard, train_pdeadd
 from core.testfn import test
 from core.parse import parser_train
-from core.data import DataAugmentor, load_data, load_cifar_c
-from core.utils import BestSaver, get_logger, set_seed, format_time, save_model, get_desc
+from core.data import load_dataloader, load_corr_dataloader
 from core.scheduler import WarmUpLR, get_scheduler
-from core.attacks import create_attack
-
-def run_pdeadd():  
-
-    # writer
-    writer = SummaryWriter(os.path.join(args.save_dir), comment='train', filename_suffix='train')
-    writer_wodiff = SummaryWriter(os.path.join(args.save_dir), comment='test_wodiff', filename_suffix='test_wodiff')
-    writer_endiff = SummaryWriter(os.path.join(args.save_dir), comment='test_endiff', filename_suffix='test_endiff')
-
-    # start training
-    total_metrics = pd.DataFrame()
-    wodiff_saver = BestSaver()
-    endiff_saver = BestSaver()
-
-    for epoch in range(start_epoch, args.epoch + start_epoch):
-
-        start = time.time()
-        
-        # train
-        train_metric = train_pdeadd(dataloader_train, model, optimizerDiff, optimizerC, 
-                        augmentor=augmentor, attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
-
-        if (args.scheduler != 'none') and (epoch > args.warm):
-            scheduler.step()  
-        if (args.warm) and (epoch <= args.warm):
-            warmup_scheduler.step()
-
-        # test for nat
-        eval_nat_wodiff_metric = test(dataloader_test, model, use_diffusion=False, device=device)
-        # test for ood
-        if epoch < 100:
-            eval_per_epoch = 20
-        elif epoch < 160:
-            eval_per_epoch = 10
-        else:
-            eval_per_epoch = 1
-        
-        # verbose
-        logger.info('\n[Epoch {}] - Time taken: {}'.format(epoch, format_time(time.time()-start)))
-        logger.info('Train\t Acc: {:.2f}%, NLLLoss: {:.2f}, ClassLoss: {:.2f}'.format(
-                    train_metric['train_acc'],train_metric['train_loss_nll'],train_metric['train_loss_cla']))
-        logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
-                    train_metric['scales1'],train_metric['scales2'],train_metric['scales3'],train_metric['scales4']))
-        logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_nat_wodiff_metric['eval_acc'],eval_nat_wodiff_metric['eval_loss']))     
-            
-        if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
-            eval_ood_wodiff_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-            eval_ood_endiff_metric = test(dataloader_test_ood, model, use_diffusion=True, device=device)   
-            logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_ood_wodiff_metric['eval_acc'],eval_ood_wodiff_metric['eval_loss'],
-                    eval_ood_endiff_metric['eval_acc'],eval_ood_endiff_metric['eval_loss']))
-        
-        # save tensorboard
-        writer.add_scalar('train/lossDiff', train_metric['train_loss_nll'], epoch)
-        writer.add_scalar('train/lossC', train_metric['train_loss_cla'], epoch)
-        writer.add_scalar('train/acc', train_metric['train_acc'], epoch)
-
-        writer.add_scalar('scales/layer1', train_metric['scales1'], epoch)
-        writer.add_scalar('scales/layer2', train_metric['scales2'], epoch)
-        writer.add_scalar('scales/layer3', train_metric['scales3'], epoch)
-        writer.add_scalar('scales/layer4', train_metric['scales4'], epoch)
-        
-        writer_wodiff.add_scalar('evalnat/loss', eval_nat_wodiff_metric['eval_loss'], epoch)
-        writer_wodiff.add_scalar('evalnat/acc', eval_nat_wodiff_metric['eval_acc'], epoch)
-        
-        writer_wodiff.add_scalar('evalood/loss', eval_ood_wodiff_metric['eval_loss'], epoch)
-        writer_wodiff.add_scalar('evalood/acc', eval_ood_wodiff_metric['eval_acc'], epoch)
-        writer_endiff.add_scalar('evalood/loss', eval_ood_endiff_metric['eval_loss'], epoch)
-        writer_endiff.add_scalar('evalood/acc', eval_ood_endiff_metric['eval_acc'], epoch)
-
-        # save csv
-        metric = pd.concat(
-            [pd.DataFrame(train_metric,index=[epoch]), 
-            pd.DataFrame(eval_nat_wodiff_metric,index=[epoch]),
-            pd.DataFrame(eval_ood_wodiff_metric,index=[epoch]),
-            pd.DataFrame(eval_ood_endiff_metric,index=[epoch])
-            ], axis=1)
-        total_metrics = pd.concat([total_metrics, metric], ignore_index=True)
-        total_metrics.to_csv(os.path.join(args.save_dir, 'stats.csv'), index=True)
-        
-
-        # save model
-        wodiff_saver.apply(eval_nat_wodiff_metric['eval_acc'], epoch, 
-                           model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
-                           save_path=os.path.join(args.save_dir,'model-best-wodiff.pt'))
-        endiff_saver.apply(eval_nat_wodiff_metric['eval_acc'], epoch, 
-                           model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
-                           save_path=os.path.join(args.save_dir,'model-best-endiff.pt'))
-        if (epoch!=0) and (epoch % args.save_freq==0):
-            save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff, 
-                       save_path=os.path.join(args.save_dir,'model-e{}.pt'.format(epoch)))
-        save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff, 
-                   save_path=os.path.join(args.save_dir,'model-last.pt'))
-
-    logger.info("\n[Final]\t Best wo-diff acc: {:.2f}% in Epoch: {}".format(wodiff_saver.best_acc, wodiff_saver.best_epoch))
-    logger.info("\n[Final]\t Best en-diff acc: {:.2f}% in Epoch: {}".format(endiff_saver.best_acc, endiff_saver.best_epoch))
-
-
-
-
-def run_standard():
-
-    writer = SummaryWriter(args.save_dir)
-
-    # start training
-    total_metrics = pd.DataFrame()
-    saver = BestSaver()
-    
-    for epoch in range(start_epoch, args.epoch + start_epoch):
-
-        start = time.time()
-        
-        # train
-        train_metric = train_standard(dataloader_train, model, optimizerC, 
-                                      augmentor=augmentor, attacker=attack_train, 
-                                      device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
-
-        if (args.scheduler != 'none') and (epoch > args.warm):
-            scheduler.step()  
-        if (args.warm) and (epoch <= args.warm):
-            warmup_scheduler.step()
-        
-        
-        # test for nat
-        eval_nat_metric = test(dataloader_test, model, use_diffusion=False, device=device)
-        
-        # test for ood
-        eval_ood_metric = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-
-        # save tensorboard
-        writer.add_scalar('train/lossC', train_metric['train_loss'], epoch)
-        writer.add_scalar('train/acc', train_metric['train_acc'], epoch)
-        writer.add_scalar('evalnat/loss', eval_nat_metric['eval_loss'], epoch)
-        writer.add_scalar('evalnat/acc', eval_nat_metric['eval_acc'], epoch)
-        writer.add_scalar('evalood/loss', eval_ood_metric['eval_loss'], epoch)
-        writer.add_scalar('evalood/acc', eval_ood_metric['eval_acc'], epoch)
-
-        # save csv
-        metric = pd.concat([pd.DataFrame(train_metric,index=[epoch]), 
-                            pd.DataFrame(eval_nat_metric,index=[epoch]),
-                            pd.DataFrame(eval_ood_metric,index=[epoch])], axis=1)
-        total_metrics = pd.concat([total_metrics, metric], ignore_index=True)
-        total_metrics.to_csv(os.path.join(args.save_dir, 'stats.csv'), index=True)
-
-        # verbose
-        logger.info('\n[Epoch {}] - Time taken: {}'.format(epoch, format_time(time.time()-start)))
-        logger.info('Train\tAcc: {:.2f}%, ClassLoss: {:.2f}'.format(
-                    train_metric['train_acc'],train_metric['train_loss']))
-        logger.info('Eval Nature Samples\n\tAcc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_nat_metric['eval_acc'],eval_nat_metric['eval_loss']))
-        logger.info('Eval O.O.D. Samples\n\tAcc: {:.2f}%, Loss: {:.2f}'.format(
-                    eval_ood_metric['eval_acc'],eval_ood_metric['eval_loss']))
-
-        # save model
-        saver.apply(eval_ood_metric["eval_acc"], epoch, model=model, optimizerC=optimizerC, scheduler=scheduler,
-                    save_path=os.path.join(args.save_dir,'model-best.pt'))
-        if epoch % args.save_freq==0:
-            save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, save_path=os.path.join(args.save_dir,'model-e{}.pt'.format(epoch)))
-        save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, save_path=os.path.join(args.save_dir,'model-last.pt'))
-
-    logger.info("\n[Final]\t Best acc: {:.2f}% in Epoch: {}".format(saver.best_acc, saver.best_epoch))
-
-
-
-
+from core.utils import BestSaver, get_logger, set_seed, get_desc, eval_epoch, verbose_and_save
 
 # load args
 args = parser_train()
@@ -187,39 +22,38 @@ set_seed(args.seed)
 if args.resume_file:
     resume_file = args.resume_file
     resume_epoch = args.epoch
-
     path = "/".join(args.resume_file.split('/')[:-2])
     with open(os.path.join(path, 'train', 'args.txt'), 'r') as f:
         old = json.load(f)
         args.__dict__ = dict(vars(args), **old)
-    
     args.save_dir = os.path.join(path, 'resume')
     args.resume_file = resume_file
     args.epoch = resume_epoch
     args.scheduler ='none'
-
 else:
     args.desc = get_desc(args)
     args.save_dir = os.path.join(args.save_dir, args.desc, 'train')
 
-
 # set logs
 os.makedirs(args.save_dir, exist_ok=True)
-logger = get_logger(logpath=os.path.join(args.save_dir, 'verbose.log'), filepath=os.path.abspath(__file__)) # wandb.init(project="test", config = args, name=args.desc)
+logger = get_logger(logpath=os.path.join(args.save_dir, 'verbose.log'))
 
 # save args
 with open(os.path.join(args.save_dir, 'args.txt'), 'w') as f:
     json.dump(args.__dict__, f, indent=4)
 
 # dataloaders
-dataloader_train, dataloader_test = load_data(args)
-if args.data == 'tinyin200':
+dataloader_train, dataloader_train_diff, dataloader_test = load_dataloader(args)
+if args.data == 'tin200':
     dataloader_test_ood = dataloader_test
 else:
-    dataloader_test_ood = load_cifar_c(args.data, args.data_dir, args.batch_size_validation, dnum=60, severity=args.severity_eval, norm=args.norm)
+    dataloader_test_ood = load_corr_dataloader(args.data, args.data_dir, args.batch_size_validation, dnum=60, severity=args.severity_eval, norm=args.norm)
+    
+logger.info('Using train dataset: {} with augment: {}'.format(args.data, args.aug_train))
+logger.info('Using train diffusion guidance dataset: {} with augment: {}'.format(args.data_diff, args.aug_train_diff))
+logger.info('Using test dataset: {} with its corrs'.format(args.data))
 
-logger.info('Using dataset: {}'.format(args.data))
-if args.data == 'tinyin200':
+if args.data in ['tinyin200']:
     logger.info('Train data shape: {}, label shape: {}'.format(
         len(dataloader_train.dataset.samples), len(dataloader_train.dataset.targets)))
     logger.info('Test data shape: {}, label shape: {}'.format(
@@ -238,38 +72,21 @@ else:
 device = torch.device('cuda' if torch.cuda.is_available() else 'mps')
 logger.info('using device: {}'.format(device))
 
-
 # create model
 model = create_model(args.data, args.backbone, args.protocol)
 model = model.to(device)
 logger.info("using model: {}".format(args.backbone))
 logger.info("using protocol: {}".format(args.protocol))
 
-
-# augmentor
-
-if args.aug_train == 'none':
-    augmentor=None
-else:
-    augmentor = DataAugmentor(args.aug_train, args.save_dir)
-logger.info('using training augmentors: {}'.format(args.aug_train))
-
 # attackers
-if args.atk_train == 'none':
-    attack_train = create_attack(model, attack_type=args.atk_train, attack_eps=args.attack_eps, attack_iter=args.attack_iter, attack_step=args.attack_step, rand_init_type='uniform', save_path= args.save_dir)
-else:
-    attack_train = None
-if args.atk_train =='none':
-    attack_eval = create_attack(model, attack_type=args.atk_eval, attack_eps=args.attack_eps, attack_iter=2*args.attack_iter, attack_step=args.attack_step)
-else:
-    attack_eval = create_attack(model, attack_type=args.atk_train, attack_eps=args.attack_eps, attack_iter=2*args.attack_iter, attack_step=args.attack_step)
+attack_train = None
+attack_eval = None
 logger.info('using training attacker: {}'.format(args.atk_train))
 logger.info('using evaluating attacker: {}'.format(args.atk_eval))
-       
 
 # optimizers
 optimizerC = torch.optim.SGD(model.parameters(), lr=args.lrC, momentum=0.9, weight_decay=args.weight_decay)
-#optimizerDiff = torch.optim.Adam(model.parameters(),lr=args.lrDiff)
+optimizerDiff = None
 if args.protocol == 'pdeadd':
     diffusion_params = []
     for name, param in model.named_parameters():
@@ -297,13 +114,57 @@ if args.resume_file:
     for param_group in optimizerC.param_groups:
         param_group["lr"] = last_cla_lr
     del checkpoint
+
+# writer
+writer_train = SummaryWriter(os.path.join(args.save_dir), comment='train', filename_suffix='train')
+writer_eval = SummaryWriter(os.path.join(args.save_dir), comment='eval', filename_suffix='eval')
+writer_eval_diff = SummaryWriter(os.path.join(args.save_dir), comment='eval_diff', filename_suffix='eval_diff')
+
+# start training
+total_metrics = pd.DataFrame()
+saver, diff_saver = BestSaver(), BestSaver()
+eval_metric, eval_metric["ood"],eval_metric["ood_diff"] = defaultdict(float),defaultdict(float),defaultdict(float)
+
+for epoch in range(start_epoch, args.epoch + start_epoch):
+    start = time.time()
     
+    if args.protocol == 'pdeadd':
+        train_metric = train_pdeadd(dataloader_train,  dataloader_train_diff, model, optimizerDiff, optimizerC, 
+                                attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
+    else:
+        train_metric = train_standard(dataloader_train, model, optimizerC, attacker=attack_train, 
+                                    device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
+    
+    if (args.scheduler != 'none') and (epoch > args.warm):
+        scheduler.step()  
+    if (args.warm) and (epoch <= args.warm):
+        warmup_scheduler.step()
 
-# main train
-if args.protocol == 'pdeadd':
-    run_pdeadd()
-elif args.protocol == 'standard':
-    run_standard()
-else:
-    raise
+    # test for nat
+    eval_metric["nat"] = test(dataloader_test, model, use_diffusion=False, device=device)
+    # test for ood
+    eval_per_epoch = eval_epoch(epoch)
+    if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
+        eval_metric["ood"] = test(dataloader_test_ood, model, use_diffusion=False, device=device)
+        eval_metric["ood_diff"] = test(dataloader_test_ood, model, use_diffusion=True, device=device)  
 
+    total_metrics = verbose_and_save(logger, epoch, start, 
+                        train_metric, eval_metric, 
+                        writer_train, writer_eval, writer_eval_diff, 
+                        total_metrics, args)
+
+    # save model
+    saver.apply(eval_metric["ood"]['eval_acc'], epoch, 
+                        model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
+                        save_path=os.path.join(args.save_dir,'model-best-wodiff.pt'))
+    diff_saver.apply(eval_metric["ood_diff"]['eval_acc'], epoch, 
+                        model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff,
+                        save_path=os.path.join(args.save_dir,'model-best-endiff.pt'))
+    if (epoch!=0) and (epoch % args.save_freq==0):
+        saver.save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff, 
+                    save_path=os.path.join(args.save_dir,'model-e{}.pt'.format(epoch)))
+    saver.save_model(model=model, optimizerC=optimizerC, scheduler=scheduler, optimizerDiff=optimizerDiff, 
+                save_path=os.path.join(args.save_dir,'model-last.pt'))
+
+logger.info("\n[Final]\t Best wo-diff acc: {:.2f}% in Epoch: {}".format(saver.best_acc, saver.best_epoch))
+logger.info("\n[Final]\t Best en-diff acc: {:.2f}% in Epoch: {}".format(diff_saver.best_acc, diff_saver.best_epoch))

@@ -42,23 +42,13 @@ class BasicBlock(nn.Module):
                 nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion * planes))
 
-        self.diff = Diffusion(planes)
-
 
     def forward(self, x):
-        x, use_diffusion, _ = x 
-
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
         out = F.relu(out)
-        
-        if use_diffusion:
-            sigma = self.diff(out)
-            out = out + sigma * torch.randn_like(out)
-            return (out, use_diffusion, sigma)
-        else:
-            return (out, use_diffusion, 0)
+        return out
 
         
 
@@ -83,6 +73,12 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
+
+        self.diff1 = Diffusion(64)
+        self.diff2 = Diffusion(128)
+        self.diff3 = Diffusion(256)
+        self.diff4 = Diffusion(512)
+
         self.linear = nn.Linear(512 * block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
@@ -100,40 +96,48 @@ class ResNet(nn.Module):
         self.scales = []
 
         out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1((out, use_diffusion, 0))
-        self.mus.append(out[0])
-        self.sigmas.append(out[2])
-        if use_diffusion:
-            self.scales.append(out[2].max().detach().data.item())
-        else:
-            self.scales.append(0)
 
-        out = self.layer2(out)
-        self.mus.append(out[0])
-        self.sigmas.append(out[2])
+        out = self.layer1(out)
         if use_diffusion:
-            self.scales.append(out[2].max().detach().data.item())
+            sigma = self.diff1(out)
         else:
-            self.scales.append(0)
+            sigma = torch.zeros_like(out)
+        out_diff = out + sigma * torch.randn_like(out)
+        self.mus.append(out)
+        self.sigmas.append(sigma)
+        self.scales.append(sigma.mean().detach().data.item())
 
-        out = self.layer3(out)
-        self.mus.append(out[0])
-        self.sigmas.append(out[2])
+        out = self.layer2(out_diff)
         if use_diffusion:
-            self.scales.append(out[2].max().detach().data.item())
+            sigma = self.diff2(out)
         else:
-            self.scales.append(0)
+            sigma = torch.zeros_like(out)
+        out_diff = out + sigma * torch.randn_like(out)
+        self.mus.append(out)
+        self.sigmas.append(sigma)
+        self.scales.append(sigma.mean().detach().data.item())
 
-        out = self.layer4(out)
-        self.mus.append(out[0])
-        self.sigmas.append(out[2])
+        out = self.layer3(out_diff)
         if use_diffusion:
-            self.scales.append(out[2].max().detach().data.item())
+            sigma = self.diff3(out)
         else:
-            self.scales.append(0)
+            sigma = torch.zeros_like(out)
+        out_diff = out + sigma * torch.randn_like(out)
+        self.mus.append(out)
+        self.sigmas.append(sigma)
+        self.scales.append(sigma.mean().detach().data.item())
 
-        out = out[0]
-        out = F.avg_pool2d(out, 4)
+        out = self.layer4(out_diff)
+        if use_diffusion:
+            sigma = self.diff4(out)
+        else:
+            sigma = torch.zeros_like(out)
+        out_diff = out + sigma * torch.randn_like(out)
+        self.mus.append(out)
+        self.sigmas.append(sigma)
+        self.scales.append(sigma.mean().detach().data.item())
+
+        out = F.avg_pool2d(out_diff, 4)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
 
@@ -145,7 +149,7 @@ class ResNet(nn.Module):
         else:
             if use_diffusion:
                 proba = 0 
-                for k in range(10):  
+                for _ in range(10):  
                     out = self.net(x, use_diffusion=True)
                     proba = proba + out
                 out = proba/10

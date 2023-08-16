@@ -6,7 +6,7 @@ def parser_train():
     # basic
     parser.add_argument('--desc', type=str, default='none', help='Description of experiment. It will be used to name directories.')
     parser.add_argument('--save-dir', type=str, default='./save')
-    parser.add_argument('--seed', type=int, default=2333)
+    parser.add_argument('--seed', type=int, default=3407)
     
     # whole training
     parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs.')
@@ -16,26 +16,27 @@ def parser_train():
      
     # data 
     parser.add_argument('--data-dir', type=str, default='./datasets')
-    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100','tinyin200'], help='Data to use.')
+    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100','tin200'], help='Data to use.')
+    parser.add_argument('--data-diff', type=str, default=None, choices=['mnist','cifar10','cifar100','tin200'], help='O.O.D. Data used to guide diffusion.')
     parser.add_argument('--norm', action='store_true')
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
     
     # augmentation
-    parser.add_argument('--aug-train-inplace',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
-    parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training') 
+    parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
+    parser.add_argument('--aug-train-diff',  type=str, default="augmix", help='Data augmentation for training') 
     parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=3, help='Data augmentation severity for evaluating')
 
     # attack
     parser.add_argument('--atk-train', type=str, choices=['fgsm', 'linf-pgd', 'fgm', 'l2-pgd', 'linf-df', 'l2-df', 'linf-apgd', 'l2-apgd', 'none'], 
-                        default='linf-pgd', help='Type of attack for training.')
+                        default=None, help='Type of attack for training.')
     parser.add_argument('--atk-eval', type=str, choices=['fgsm', 'linf-pgd', 'fgm', 'l2-pgd', 'linf-df', 'l2-df', 'linf-apgd', 'l2-apgd', 'none'], 
-                        default='linf-pgd', help='Type of attack for evaluating.')
+                        default=None, help='Type of attack for evaluating.')
     parser.add_argument('--attack-eps', type=float, default=8/255, help='Epsilon for the attack.')
     parser.add_argument('--attack-step', type=float, default=2/255, help='Step size for PGD attack.')
     parser.add_argument('--attack-iter', type=int, default=10, help='Max. number of iterations (if any) for the attack.')
 
     # model
-    parser.add_argument('--backbone', type=str, choices=['resnet-18', 'wideresnet-16-4', 'preresnet-18'], default="resnet-18")
+    parser.add_argument('--backbone', type=str, choices=['resnet-18', 'resnet-34','wideresnet-16-4', 'preresnet-18'], default="resnet-18")
     parser.add_argument('--protocol', type=str,  default="pdeadd") 
     parser.add_argument('--pretrained-file', type=str, default=None, help='Pretrained weights file name.')
     parser.add_argument('--resume-file', type=str, default=None, help='Resumed file name.')

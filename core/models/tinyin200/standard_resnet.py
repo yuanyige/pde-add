@@ -128,7 +128,6 @@ class ResNet(nn.Module):
 
 
 def standard_resnet(name, num_classes=200, pretrained=False, device='cpu'):
-    print("cifar100..")
     """
     Returns suitable Resnet model from its name.
     Arguments:
