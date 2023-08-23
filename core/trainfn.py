@@ -19,9 +19,11 @@ def get_ratio(mu_aug_ood, mu, sigma, f):
     f.write("{},{},{},{}\n".format(distance,sigma,ratio2,ratio1))
 
 def train_pdeadd(dataloader_train, dataloader_train_diff, model,
-                 optimizerDiff, optimizerC, attacker=None,
-                 device=None, visualize=False, epoch=None, save_path=None):
+                 optimizerDiff, optimizerC, label_smooth=0.1, attacker=None,
+                 device=None, visualize=False, epoch=None, save_path=None, use_gmm=True):
         
+    print('use_gmm',use_gmm)
+    
     metrics = pd.DataFrame()
     batch_index = 0
     model.train()
@@ -82,11 +84,15 @@ def train_pdeadd(dataloader_train, dataloader_train_diff, model,
         # lossC.backward()
         # optimizerC.step()
 
-        x_all = torch.cat((x, x_ood), dim=0)
-        y_all = torch.cat((y, y), dim=0)
+        if use_gmm:
+            x_all = torch.cat((x, x_ood), dim=0)
+            y_all = torch.cat((y, y), dim=0)
+        else:
+            x_all = x
+            y_all = y
         out = model(x_all, use_diffusion = True)
         optimizerC.zero_grad()
-        lossC =  F.cross_entropy(out, y_all, label_smoothing=0.1)
+        lossC =  F.cross_entropy(out, y_all, label_smoothing=label_smooth)
         lossC.backward()
         optimizerC.step()
 
@@ -99,11 +105,16 @@ def train_pdeadd(dataloader_train, dataloader_train_diff, model,
         batch_metric["scales_l4"] =  model.scales[3]
         metrics = pd.concat([metrics, pd.DataFrame(batch_metric, index=[0])], ignore_index=True)
         batch_index += 1
+
+        if use_gmm:
+            length = 2*len(dataloader_train.dataset)
+        else:
+            length = len(dataloader_train.dataset)
     
     return dict(metrics.agg({
             "train_loss_nll":"mean",
             "train_loss_cla":"mean",
-            "train_acc":lambda x:100*sum(x)/(2*len(dataloader_train.dataset)),
+            "train_acc":lambda x:100*sum(x)/(length),
             "scales_l1":"mean","scales_l2":"mean","scales_l3":"mean","scales_l4":"mean"}))
 
 

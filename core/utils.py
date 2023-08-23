@@ -110,47 +110,39 @@ class BestSaver():
             'scheduler':scheduler_state_dict
             }, save_path)
 
-def verbose_and_save(logger, epoch, start, train_metric, eval_metric, writer_train, writer_eval, writer_eval_diff, total_metrics, args):
+def verbose_and_save(logger, epoch, start_epoch, eval_per_epoch, start, train_metric, eval_metric, writer):
     # save logs
     logger.info('\n[Epoch {}] - Time taken: {}'.format(epoch, format_time(time.time()-start)))
     logger.info('Train\t Acc: {:.2f}%, NLLLoss: {:.2f}, ClassLoss: {:.2f}'.format(
                 train_metric['train_acc'],train_metric['train_loss_nll'],train_metric['train_loss_cla']))
-    logger.info('Train\t Scale1: {:.2f}, Scale2: {:.2f}, Scale3: {:.2f}, Scale4: {:.2f}'.format(
+    logger.info('Train\t Scale1: {:.4f}, Scale2: {:.4f}, Scale3: {:.4f}, Scale4: {:.4f}'.format(
                 train_metric['scales_l1'],train_metric['scales_l2'],train_metric['scales_l3'],train_metric['scales_l4']))
-    logger.info('Eval Nature Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-                eval_metric["nat"]['eval_acc'],eval_metric["nat"]['eval_loss']))     
-    logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
-            eval_metric["ood"]['eval_acc'],eval_metric["ood"]['eval_loss'],
-            eval_metric["ood_diff"]['eval_acc'],eval_metric["ood_diff"]['eval_loss']))
+    if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
+        logger.info('Eval Nature Samples\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+                    eval_metric["nat"]['eval_acc'],eval_metric["nat"]['eval_loss']))     
+        logger.info('Eval O.O.D. Samples\t Acc: {:.2f}%'.format(eval_metric["ood"]['eval_acc']))
+    # logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
+    #     eval_metric["ood"]['eval_acc'],eval_metric["ood"]['eval_loss'],
+    #     eval_metric["ood_diff"]['eval_acc'],eval_metric["ood_diff"]['eval_loss']))
     
     # save tensorboard
-    writer_train.add_scalar('train/lossDiff', train_metric['train_loss_nll'], epoch)
-    writer_train.add_scalar('train/lossC', train_metric['train_loss_cla'], epoch)
-    writer_train.add_scalar('train/acc', train_metric['train_acc'], epoch)
+    writer.add_scalar('train/lossDiff', train_metric['train_loss_nll'], epoch)
+    writer.add_scalar('train/lossC', train_metric['train_loss_cla'], epoch)
+    writer.add_scalar('train/acc', train_metric['train_acc'], epoch)
 
-    writer_train.add_scalar('scales/layer1', train_metric['scales_l1'], epoch)
-    writer_train.add_scalar('scales/layer2', train_metric['scales_l2'], epoch)
-    writer_train.add_scalar('scales/layer3', train_metric['scales_l3'], epoch)
-    writer_train.add_scalar('scales/layer4', train_metric['scales_l4'], epoch)
+    writer.add_scalar('scales/layer1', train_metric['scales_l1'], epoch)
+    writer.add_scalar('scales/layer2', train_metric['scales_l2'], epoch)
+    writer.add_scalar('scales/layer3', train_metric['scales_l3'], epoch)
+    writer.add_scalar('scales/layer4', train_metric['scales_l4'], epoch)
     
-    writer_eval.add_scalar('evalnat/loss', eval_metric["nat"]['eval_loss'], epoch)
-    writer_eval.add_scalar('evalnat/acc', eval_metric["nat"]['eval_acc'], epoch)
+    writer.add_scalar('evalnat/loss', eval_metric["nat"]['eval_loss'], epoch)
+    writer.add_scalar('evalnat/acc', eval_metric["nat"]['eval_acc'], epoch)
     
-    writer_eval_diff.add_scalar('evalood/loss', eval_metric["ood"]['eval_loss'], epoch)
-    writer_eval_diff.add_scalar('evalood/acc', eval_metric["ood"]['eval_acc'], epoch)
-    writer_eval_diff.add_scalar('evalood/loss', eval_metric["ood_diff"]['eval_loss'], epoch)
-    writer_eval_diff.add_scalar('evalood/acc', eval_metric["ood_diff"]['eval_acc'], epoch)
+    # writer_eval_diff.add_scalar('evalood/loss', eval_metric["ood"]['eval_loss'], epoch)
+    writer.add_scalar('evalood/acc', eval_metric["ood"]['eval_acc'], epoch)
+    # writer_eval_diff.add_scalar('evalood/loss', eval_metric["ood_diff"]['eval_loss'], epoch)
+    # writer_eval_diff.add_scalar('evalood/acc', eval_metric["ood_diff"]['eval_acc'], epoch)
 
-    # save csv
-    metric = pd.concat(
-        [pd.DataFrame(train_metric,index=[epoch]), 
-        pd.DataFrame(eval_metric["nat"],index=[epoch]),
-        pd.DataFrame(eval_metric["ood"],index=[epoch]),
-        pd.DataFrame(eval_metric["ood_diff"],index=[epoch])
-        ], axis=1)
-    total_metrics = pd.concat([total_metrics, metric], ignore_index=True)
-    total_metrics.to_csv(os.path.join(args.save_dir, 'stats.csv'), index=True)
-    return total_metrics
 
 def eval_epoch(epoch):
     if epoch < 100:

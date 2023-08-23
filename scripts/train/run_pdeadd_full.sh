@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=5 \
+CUDA_VISIBLE_DEVICES=0 \
 python train.py \
 --data cifar10 \
 --data-diff cifar10 \
@@ -7,10 +7,12 @@ python train.py \
 --desc none \
 --backbone resnet-18 \
 --epoch 200 \
---save-dir save_cifar10_new \
+--save-dir save \
 --npc-train all \
---lrC 0.05 \
---lrDiff 0.017 \
+--lrC 0.08 \
+--lrDiff 0.001 \
 --schedule cosanlr \
---aug-train augmix-10-10 \
+--ls 0.12 \
+--use-gmm \
+--aug-train none  \
 --aug-train-diff augmix-10-10 

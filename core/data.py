@@ -6,6 +6,7 @@ import torch
 import torchvision.transforms as T
 from torchvision import datasets
 from torch.utils.data import Sampler, DataLoader
+#from robustbench.data import load_cifar10c, load_cifar10, load_cifar100c, load_cifar100
 
 corruption_19=[ 'snow', 'fog', 'frost', 'glass_blur', 'defocus_blur','motion_blur','zoom_blur','gaussian_blur',
                   'gaussian_noise','shot_noise','impulse_noise','speckle_noise',
@@ -76,14 +77,17 @@ def load_dataloader(args):
                         T.RandomHorizontalFlip(),
                         Augmentor(args.aug_train),
                         T.ToTensor()]
-    transform_train_ood = [ T.Resize(32), 
-                        T.RandomCrop(32, padding=4), 
-                        T.RandomHorizontalFlip(),
-                        Augmentor(args.aug_train_diff),
-                        T.ToTensor()]
-    transform_eval = [T.Resize(32), T.ToTensor()]
     transform_train = T.Compose(transform_train)
-    transform_train_ood = T.Compose(transform_train_ood)
+
+    if args.data_diff is not None:
+        transform_train_ood = [ T.Resize(32), 
+                            T.RandomCrop(32, padding=4), 
+                            T.RandomHorizontalFlip(),
+                            Augmentor(args.aug_train_diff),
+                            T.ToTensor()]
+        transform_train_ood = T.Compose(transform_train_ood)
+    
+    transform_eval = [T.Resize(32), T.ToTensor()]
     transform_eval = T.Compose(transform_eval)
 
     # load train & test data
@@ -124,12 +128,12 @@ def load_dataloader(args):
             data_train_diff.targets = np.array(data_train_diff.targets)[index].tolist()
 
     sampler = FixSampler(data_train)
-    dataloader_train =  DataLoader(dataset=data_train, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=0, pin_memory=False)
+    dataloader_train =  DataLoader(dataset=data_train, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=args.num_workers, pin_memory=False)
     if args.data_diff is not None:
-        dataloader_train_diff =  DataLoader(dataset=data_train_diff, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=0, pin_memory=False)
+        dataloader_train_diff =  DataLoader(dataset=data_train_diff, sampler=sampler, batch_size=args.batch_size, shuffle = False, num_workers=args.num_workers, pin_memory=False)
     else:
         dataloader_train_diff = None
-    dataloader_test =  DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=0, pin_memory=False)
+    dataloader_test =  DataLoader(dataset=data_test, batch_size=args.batch_size_validation, shuffle = False, num_workers=args.num_workers, pin_memory=False)
 
     return dataloader_train,  dataloader_train_diff, dataloader_test
 
@@ -188,20 +192,20 @@ class CIFARC(datasets.VisionDataset):
     def __len__(self):
         return len(self.data)
 
-def load_corr_dataloader(data_name, data_dir, batch_size, cname=None, dnum='all', severity=0, norm=False):
+def load_corr_dataloader(data_name, data_dir, batch_size, cname=None, dnum='all', severity=0, num_workers=2):
     transform = T.Compose([T.Resize(32),T.ToTensor()])
     if data_name in ['cifar10','cifar100']:
         filename = '-'.join(['CIFAR', data_name[5:], 'C'])   
         if dnum =='all': 
             data = CIFARC(os.path.join(data_dir, filename), cname, transform=transform, dnum='all', severity=severity)  
-            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=False)
+            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=False)
         else:
             data = CIFARC(os.path.join(data_dir, filename), transform=transform, dnum=dnum, severity=severity)  
-            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=False)
+            dataloader =  DataLoader(data, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=False)
     elif data_name == 'tin200':
         severity = str(severity)
         data = datasets.ImageFolder(os.path.join(data_dir, 'Tiny-ImageNet-C', cname, severity), transform=transform)
-        dataloader =  DataLoader(dataset=data, batch_size=batch_size, shuffle = False, num_workers=0, pin_memory=False)
+        dataloader =  DataLoader(dataset=data, batch_size=batch_size, shuffle = False, num_workers=num_workers, pin_memory=False)
     else:
         raise
     return dataloader   

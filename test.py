@@ -8,7 +8,8 @@ from core.models import create_model
 from core.testfn import test
 from core.parse import parser_test
 from core.utils import get_logger, get_logger_name
-from core.data import corruption_19, corruption_15, load_corr_dataloader
+from core.data import corruption_19, corruption_15, load_corr_dataloader, load_dataloader
+import torchvision.transforms as T
 
 args_test = parser_test()
 
@@ -33,12 +34,26 @@ else:
     raise
 
 logger = get_logger(get_logger_name(args_test.ckpt_path, args_test.load_ckpt, args_test.main_task))
+#augmentor = T.RandomRotation(360)
+#augmentor = T.GaussianBlur(5,5)
+#augmentor = T.ElasticTransform(150.0)
+#augmentor = T.RandomInvert()
+augmentor = T.ColorJitter(5,0,0,0)
 
+_,_,dataloader_nat = load_dataloader(args_test)
+dict = test(dataloader_nat, model,device=device, augmentor=augmentor)
+# logger.info("nat-"+str(dict["eval_acc"]))
+# logger.info("aug-"+str(dict["eval_acc_aug"]))
+# logger.info("dis-"+str(dict["distance"]))
+# logger.info("dismin-"+str(dict["distance_min"]))
+# logger.info("dismax-"+str(dict["distance_max"]))
+# logger.info("disstd-"+str(dict["distance_std"]))
+# exit(0)
 res = np.zeros((5, len(corr)))
 for c in range(len(corr)):
     for s in range(1, 6):
         dataloader = load_corr_dataloader(args_test.data, args_test.data_dir, args_test.batch_size, cname=corr[c], dnum='all', severity=s)
-        dict = test(dataloader, model,device=device)
+        dict = test(dataloader, model,device=device, augmentor=augmentor)
         res[s-1, c] = dict["eval_acc"]
         log = "-".join([corr[c], str(s), str(res[s-1, c])])
         logger.info(log)

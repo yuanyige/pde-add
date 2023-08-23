@@ -7,15 +7,12 @@ import torch
 import torch.nn.functional as F
 from collections import defaultdict
 from core.context import ctx_noparamgrad_and_eval
-from core.data import load_dataloader
-
-
-
+from core.data import load_dataloader, load_corr_dataloader
 from torchmetrics.functional.classification import multiclass_calibration_error
+from torchvision.transforms.functional import convert_image_dtype
+import math
 
-
-
-def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=None, device=None):
+def test(dataloader_test, model, use_diffusion=False, augmentor=None, attacker=None, device=None):
 
     metrics = pd.DataFrame()
     model.eval()
@@ -31,18 +28,56 @@ def test(dataloader_test, model, use_diffusion=True, augmentor=None, attacker=No
         
         with torch.no_grad():
             if augmentor:
-                x = augmentor.apply(x, True)
-
-            out = model(x, use_diffusion = use_diffusion)
+                # x_aug = augmentor(convert_image_dtype(x, torch.uint8))
+                # x_aug = convert_image_dtype(x_aug, torch.float)
+                x_aug = augmentor(x)
+            
+            if use_diffusion:
+                proba = 0 
+                for _ in range(10):  
+                    out = model(x, use_diffusion=True)
+                    proba = proba + out
+                out = proba/10
+            else:
+                out = model(x, use_diffusion = use_diffusion)
+            # out_aug = model(x_aug, use_diffusion = use_diffusion)
+            # distance = torch.abs(out_aug-out)
 
             batch_metric["eval_loss"] = F.cross_entropy(out, y).data.item()
             batch_metric["eval_acc"] = (torch.softmax(out.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
+
+            # batch_metric["eval_acc_aug"] = (torch.softmax(out_aug.data, dim=1).argmax(dim=1) == y.data).sum().data.item()
+            # batch_metric["distance"] = distance.data.mean().item()
+            # batch_metric["distance_min"] = distance.data.mean().item()
+            # batch_metric["distance_max"] = distance.data.mean().item()
+            # batch_metric["distance_std"] = distance.data.mean().item()
 
             metrics = pd.concat([metrics, pd.DataFrame(batch_metric, index=[0])], ignore_index=True)
 
     return dict(metrics.agg({
             "eval_loss":"mean",
-            "eval_acc":lambda x: 100*sum(x)/len(dataloader_test.dataset)}))
+            "eval_acc":lambda x: 100*sum(x)/len(dataloader_test.dataset),
+            # "eval_acc_aug":lambda x: 100*sum(x)/len(dataloader_test.dataset),
+            # "distance":"mean",
+            # "distance_min":"min",
+            # "distance_max":"max",
+            # "distance_std":"std"
+            }))
+
+
+def eval_ood(corr, args, model, use_diffusion, logger, device):
+    res = np.zeros((5, len(corr)))
+    for c in range(len(corr)):
+        for s in range(1, 6):
+            dataloader = load_corr_dataloader(args.data, args.data_dir, args.batch_size, cname=corr[c], dnum='all', severity=s)
+            dict = test(dataloader, model, use_diffusion =use_diffusion, device=device)
+            del dataloader
+            res[s-1, c] = dict["eval_acc"]
+    frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corr)
+    frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+    frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
+    logger.info(frame)
+    return {"eval_acc":frame["avg"]["average"]}
 
 
 def clean_accuracy(model: torch.nn.Module,

@@ -7,6 +7,9 @@ def parser_train():
     parser.add_argument('--desc', type=str, default='none', help='Description of experiment. It will be used to name directories.')
     parser.add_argument('--save-dir', type=str, default='./save')
     parser.add_argument('--seed', type=int, default=3407)
+    parser.add_argument('--pretrained-file', type=str, default=None, help='Pretrained weights file name.')
+    parser.add_argument('--resume-file', type=str, default=None, help='Resumed file name.')
+    parser.add_argument('--save-freq', type=int, default=50, help='Save per epochs.') 
     
     # whole training
     parser.add_argument('--epoch', type=int, default=200, help='Number of training epochs.')
@@ -20,6 +23,7 @@ def parser_train():
     parser.add_argument('--data-diff', type=str, default=None, choices=['mnist','cifar10','cifar100','tin200'], help='O.O.D. Data used to guide diffusion.')
     parser.add_argument('--norm', action='store_true')
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
+    parser.add_argument('--num-workers', type=int, default=2) 
     
     # augmentation
     parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
@@ -38,9 +42,10 @@ def parser_train():
     # model
     parser.add_argument('--backbone', type=str, choices=['resnet-18', 'resnet-34','wideresnet-16-4', 'preresnet-18'], default="resnet-18")
     parser.add_argument('--protocol', type=str,  default="pdeadd") 
-    parser.add_argument('--pretrained-file', type=str, default=None, help='Pretrained weights file name.')
-    parser.add_argument('--resume-file', type=str, default=None, help='Resumed file name.')
-    parser.add_argument('--save-freq', type=int, default=50, help='Save per epochs.') 
+    parser.add_argument('--use-gmm', action='store_true') 
+    parser.add_argument('--ls', type=float,  default=0.1) 
+    
+
     
     # C optimizer
     parser.add_argument('--optimizerC', type=str, default='sgd', help='Choice for optimizerC.')
