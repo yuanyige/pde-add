@@ -12,7 +12,7 @@ from core.models import create_model
 from core.trainfn import train_standard, train_pdeadd
 from core.testfn import test, eval_ood
 from core.parse import parser_train
-from core.data import load_dataloader, load_corr_dataloader, corruption_15
+from core.data import load_dataloader,load_dg_dataloader, corruption_15, pacs_4
 from core.scheduler import WarmUpLR, get_scheduler
 from core.utils import BestSaver, get_logger, set_seed, get_desc, eval_epoch, verbose_and_save
 
@@ -23,10 +23,11 @@ def objective(trial=None):
     set_seed(args.seed)
 
     if use_optuna:
-        args.lrC = trial.suggest_float("lrC", 1e-5, 1e-1,log=True) 
-        args.lrDiff = trial.suggest_float("lrDiff", 1e-5, 1e-1,log=True) 
-        #args.batch_size=trial.suggest_int("bs", 64, 256,step=64)
-        args.ls=trial.suggest_float("ls",0, 0.5)
+        args.lrC = trial.suggest_float("lrC", 0.05, 0.1, step=0.01) 
+        args.lrDiff = trial.suggest_float("lrDiff", 0.0002, 0.001, step=0.0001) 
+        #args.batch_size=trial.suggest_int("bs", 64, 256, step=64)
+        args.ls=trial.suggest_float("ls",0.1, 0.2, step=0.01)
+        args.save_dir = optuna_save_dir
 
     if args.resume_file:
         resume_file = args.resume_file
@@ -57,37 +58,55 @@ def objective(trial=None):
         json.dump(args.__dict__, f, indent=4)
 
     # dataloaders
-    dataloader_train, dataloader_train_diff, dataloader_test = load_dataloader(args)
-    if args.data == 'tin200':
-        dataloader_test_ood = dataloader_test
-    # else:
-    #     dataloader_test_ood = load_corr_dataloader(args.data, args.data_dir, args.batch_size_validation, dnum=60, severity=args.severity_eval, num_workers=args.num_workers)
+    if args.data in ['cifar10','cifar100','tin200'] :
+        args.data_diff = args.data
+        ood_data = corruption_15
+    elif 'pacs' in args.data:
+        ood_data = pacs_4
+        if args.data.split("-")[1] in ood_data:
+            ood_data.remove(args.data.split("-")[1])
+        if (args.data_diff):
+            if (args.data_diff.split("-")[1] in ood_data) and (args.use_gmm):
+                ood_data.remove(args.data_diff.split("-")[1])
         
-    logger.info('Using train dataset: {} with augment: {}'.format(args.data, args.aug_train))
-    logger.info('Using train diffusion guidance dataset: {} with augment: {}'.format(args.data_diff, args.aug_train_diff))
-    logger.info('Using test dataset: {} with its corrs'.format(args.data))
 
-    if args.data in ['tinyin200']:
-        logger.info('Train data shape: {}, label shape: {}'.format(
-            len(dataloader_train.dataset.samples), len(dataloader_train.dataset.targets)))
-        logger.info('Test data shape: {}, label shape: {}'.format(
-            len(dataloader_test.dataset.samples), len(dataloader_test.dataset.targets)))
-        logger.info('Test ood data shape: {}, label shape: {}'.format(
-            len(dataloader_test_ood.dataset.samples), len(dataloader_test_ood.dataset.targets)))
+    if ('pacs' in args.data) and (args.data != args.data_diff) and (args.data_diff is not None):
+        dataloader_train, dataloader_train_diff, dataloader_test = load_dg_dataloader(args) 
     else:
-        logger.info('Train data shape: {}, label shape: {}'.format(
+        dataloader_train, dataloader_train_diff, dataloader_test = load_dataloader(args) 
+        
+
+    logger.info('Using train dataset: {} with augment: {}'.format(args.data, args.aug_train))
+    if ('pacs' in args.data) or (args.data in ['tin200']):
+        logger.info('[+] data shape: {}, label shape: {}'.format(
+            len(dataloader_train.dataset.samples), len(dataloader_train.dataset.targets)))
+    elif ('cifar' in args.data):
+        logger.info('[+] data shape: {}, label shape: {}'.format(
             dataloader_train.dataset.data.shape, len(dataloader_train.dataset.targets)))
-        logger.info('Test data shape: {}, label shape: {}'.format(
-            dataloader_test.dataset.data.shape, len(dataloader_test.dataset.targets)))
-        # logger.info('Test ood data shape: {}, label shape: {}'.format(
-        #     dataloader_test_ood.dataset.data.shape, len(dataloader_test_ood.dataset.targets)))  
+    else:
+        raise
+    
+    if args.data_diff:
+        logger.info('Using train diffusion guidance dataset: {} with augment: {}'.format(args.data_diff, args.aug_train_diff))
+        if ('pacs' in args.data) or (args.data in ['tin200']):
+            logger.info('[+] data shape: {}, label shape: {}'.format(
+                len(dataloader_train_diff.dataset.samples), len(dataloader_train_diff.dataset.targets)))
+        elif ('cifar' in args.data) :
+            logger.info('[+] data shape: {}, label shape: {}'.format(
+                dataloader_train_diff.dataset.data.shape, len(dataloader_train_diff.dataset.targets)))
+        else:
+            raise
+    else:
+        logger.info('Not using train diffusion guidance dataset')
+
+    logger.info('Using test dataset: {}'.format(ood_data))
 
     # device
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps')
     logger.info('using device: {}'.format(device))
 
     # create model
-    model = create_model(args.data, args.backbone, args.protocol)
+    model = create_model(args.backbone, args.protocol, num_classes=len(dataloader_train.dataset.classes))
     model = model.to(device)
     logger.info("using model: {}".format(args.backbone))
     logger.info("using protocol: {}".format(args.protocol))
@@ -122,7 +141,7 @@ def objective(trial=None):
         checkpoint = torch.load(args.resume_file)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizerC.load_state_dict(checkpoint['optimizerC_state_dict'])
-        if 'ladiff' in args.protocol:
+        if 'pdeadd' in args.protocol:
             optimizerDiff.load_state_dict(checkpoint['optimizerDiff_state_dict'])
         last_cla_lr = checkpoint['scheduler']["_last_lr"][0]
         start_epoch = checkpoint['scheduler']["last_epoch"]
@@ -138,15 +157,15 @@ def objective(trial=None):
 
     # start training
     total_metrics = pd.DataFrame()
-    saver, diff_saver = BestSaver(), BestSaver()
-    eval_metric, eval_metric["ood"],eval_metric["ood_diff"] = defaultdict(float),defaultdict(float),defaultdict(float)
+    saver = BestSaver()
+    eval_metric, eval_metric["ood"],eval_metric["nat"] = defaultdict(float),defaultdict(float),defaultdict(float)
 
     for epoch in range(start_epoch, args.epoch + start_epoch):
         start = time.time()
         
         if args.protocol == 'pdeadd':
             train_metric = train_pdeadd(dataloader_train,  dataloader_train_diff, model, optimizerDiff, optimizerC, label_smooth=args.ls,
-                                    attacker=attack_train, device=device, visualize=True if epoch==start_epoch else False, epoch=epoch, use_gmm=args.use_gmm)
+                                    attacker=attack_train, device=device, use_gmm=args.use_gmm, save_path=args.save_dir)
         else:
             train_metric = train_standard(dataloader_train, model, optimizerC, attacker=attack_train, 
                                         device=device, visualize=True if epoch==start_epoch else False, epoch=epoch)
@@ -158,15 +177,12 @@ def objective(trial=None):
 
         # test for nat
         with torch.no_grad(): 
-            #eval_metric["ood"] = test(dataloader_test_ood, model, use_diffusion=False, device=device)
-            # test for nat & diff ood
             eval_per_epoch = eval_epoch(epoch)
             if (epoch == start_epoch) or (epoch % eval_per_epoch == 0):
-                eval_metric["nat"] = test(dataloader_test, model, use_diffusion=False, device=device)
-                eval_metric["ood"] = eval_ood(corr=corruption_15, args=args, model=model, use_diffusion=False, logger=logger, device=device) 
-                #eval_metric["ood_diff"] = test(dataloader_test_ood, model, use_diffusion=True, device=device) 
-                #eval_metric["ood_diff"] = eval_ood(corr=corruption_15, args=args, model=model, use_diffusion=True, device=device)  
-                #eval_metric["ood_diff"] = 0.0
+                eval_metric["ood"] = eval_ood(ood_data=ood_data, args=args, model=model, use_diffusion=False, logger=logger, device=device) 
+                if dataloader_test:
+                    eval_metric["nat"] = test(dataloader_test, model, use_diffusion=False, device=device)
+                
                 
             if use_optuna:
                 trial.report(eval_metric["ood"]["eval_acc"], epoch)
@@ -205,7 +221,7 @@ def objective(trial=None):
     return eval_metric["ood"]["eval_acc"]
 
 use_optuna = False
-optuna_save_dir = '/home/yuanyige/Ladiff_nll/save_cifar10_optuna_original'
+optuna_save_dir = '/home/yuanyige/Ladiff_nll/save_optuna_200'
 if use_optuna:
     os.makedirs(optuna_save_dir, exist_ok=True)
     logger = get_logger(logpath=os.path.join(optuna_save_dir, 'verbose.log'))

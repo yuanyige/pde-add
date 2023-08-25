@@ -49,15 +49,29 @@ dict = test(dataloader_nat, model,device=device, augmentor=augmentor)
 # logger.info("dismax-"+str(dict["distance_max"]))
 # logger.info("disstd-"+str(dict["distance_std"]))
 # exit(0)
-res = np.zeros((5, len(corr)))
-for c in range(len(corr)):
-    for s in range(1, 6):
-        dataloader = load_corr_dataloader(args_test.data, args_test.data_dir, args_test.batch_size, cname=corr[c], dnum='all', severity=s)
-        dict = test(dataloader, model,device=device, augmentor=augmentor)
-        res[s-1, c] = dict["eval_acc"]
-        log = "-".join([corr[c], str(s), str(res[s-1, c])])
-        logger.info(log)
-frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corr)
-frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
-frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
-logger.info(frame)
+if 'pacs' in args_test.data:
+    res = np.zeros((4, len(corr)))
+    for c in range(len(corr)):
+        for s in range(1, 6):
+            dataloader = load_corr_dataloader(args_test.data, args_test.data_dir, args_test.batch_size, cname=corr[c], dnum='all', severity=s)
+            dict = test(dataloader, model,device=device, augmentor=augmentor)
+            res[s-1, c] = dict["eval_acc"]
+            log = "-".join([corr[c], str(s), str(res[s-1, c])])
+            logger.info(log)
+    frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corr)
+    frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+    frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
+    logger.info(frame)
+else:
+    res = np.zeros((5, len(corr)))
+    for c in range(len(corr)):
+        for s in range(1, 6):
+            dataloader = load_corr_dataloader(args_test.data, args_test.data_dir, args_test.batch_size, cname=corr[c], dnum='all', severity=s)
+            dict = test(dataloader, model,device=device, augmentor=augmentor)
+            res[s-1, c] = dict["eval_acc"]
+            log = "-".join([corr[c], str(s), str(res[s-1, c])])
+            logger.info(log)
+    frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corr)
+    frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+    frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
+    logger.info(frame)

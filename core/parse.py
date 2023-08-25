@@ -19,8 +19,9 @@ def parser_train():
      
     # data 
     parser.add_argument('--data-dir', type=str, default='./datasets')
-    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100','tin200'], help='Data to use.')
-    parser.add_argument('--data-diff', type=str, default=None, choices=['mnist','cifar10','cifar100','tin200'], help='O.O.D. Data used to guide diffusion.')
+    parser.add_argument('--data', type=str, default='cifar10', choices=['mnist','cifar10','cifar100','tin200','pacs-art','pacs-cartoon','pacs-photo','pacs-sketch'], help='Data to use.')
+    parser.add_argument('--data-diff', type=str, default=None, choices=['mnist','cifar10','cifar100','tin200','pacs-art','pacs-cartoon','pacs-photo','pacs-sketch'], help='O.O.D. Data used to guide diffusion.')
+    #parser.add_argument('--data-eval', type=str, default=None, choices=['mnist','cifar10','cifar100','tin200','pacs-art','pacs-cartoon','pacs-photo','pacs-sketch'], help='O.O.D. Data used to guide diffusion.')
     parser.add_argument('--norm', action='store_true')
     parser.add_argument('--npc-train', default='all', help='Number of training samples per class, int or all.') 
     parser.add_argument('--num-workers', type=int, default=2) 
@@ -28,7 +29,6 @@ def parser_train():
     # augmentation
     parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
     parser.add_argument('--aug-train-diff',  type=str, default="augmix", help='Data augmentation for training') 
-    parser.add_argument('--severity-eval',  type=int, choices=[1,2,3,4,5], default=3, help='Data augmentation severity for evaluating')
 
     # attack
     parser.add_argument('--atk-train', type=str, choices=['fgsm', 'linf-pgd', 'fgm', 'l2-pgd', 'linf-df', 'l2-df', 'linf-apgd', 'l2-apgd', 'none'], 

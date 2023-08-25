@@ -9,10 +9,10 @@ python train.py \
 --epoch 200 \
 --save-dir save \
 --npc-train all \
---lrC 0.08 \
+--lrC 0.06 \
 --lrDiff 0.001 \
 --schedule cosanlr \
 --ls 0.12 \
 --use-gmm \
---aug-train none  \
+--aug-train augmix-10-10 \
 --aug-train-diff augmix-10-10 

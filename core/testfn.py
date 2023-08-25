@@ -65,19 +65,31 @@ def test(dataloader_test, model, use_diffusion=False, augmentor=None, attacker=N
             }))
 
 
-def eval_ood(corr, args, model, use_diffusion, logger, device):
-    res = np.zeros((5, len(corr)))
-    for c in range(len(corr)):
-        for s in range(1, 6):
-            dataloader = load_corr_dataloader(args.data, args.data_dir, args.batch_size, cname=corr[c], dnum='all', severity=s)
+def eval_ood(ood_data, args, model, use_diffusion, logger, device):
+    if 'pacs' in args.data:
+        res = [] 
+        for c in range(len(ood_data)):
+            dataloader = load_corr_dataloader(args.data, args.data_dir, args.batch_size, cname=ood_data[c])
             dict = test(dataloader, model, use_diffusion =use_diffusion, device=device)
             del dataloader
-            res[s-1, c] = dict["eval_acc"]
-    frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=corr)
-    frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
-    frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
-    logger.info(frame)
-    return {"eval_acc":frame["avg"]["average"]}
+            res.append(dict["eval_acc"])
+            logger.info("{}-{}".format(ood_data[c],dict["eval_acc"]))
+        ret = np.array(res).mean()
+         
+    else:
+        res = np.zeros((5, len(ood_data)))
+        for c in range(len(ood_data)):
+            for s in range(1, 6):
+                dataloader = load_corr_dataloader(args.data, args.data_dir, args.batch_size, cname=ood_data[c], severity=s)
+                dict = test(dataloader, model, use_diffusion =use_diffusion, device=device)
+                del dataloader
+                res[s-1, c] = dict["eval_acc"]
+        frame = pd.DataFrame({i+1: res[i, :] for i in range(0, 5)}, index=ood_data)
+        frame.loc['average'] = {i+1: np.mean(res, axis=1)[i] for i in range(0, 5)}
+        frame['avg'] = frame[list(range(1, 6))].mean(axis=1)
+        logger.info(frame)
+        ret = frame["avg"]["average"]
+    return {"eval_acc":ret}
 
 
 def clean_accuracy(model: torch.nn.Module,

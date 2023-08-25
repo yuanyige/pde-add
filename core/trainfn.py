@@ -6,21 +6,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from core.context import ctx_noparamgrad_and_eval
+from core.utils import vis
 
 nll_loss = nn.GaussianNLLLoss()
 
 #augmentor_ood = DataAugmentor('rotation-20')
 
-def get_ratio(mu_aug_ood, mu, sigma, f):
-    ratio1 = ((mu_aug_ood-mu).abs()/(sigma+1e-8)).mean().item()
-    distance = (mu_aug_ood-mu).abs().mean().item()
-    sigma = sigma.mean().item()
-    ratio2 = distance/sigma
-    f.write("{},{},{},{}\n".format(distance,sigma,ratio2,ratio1))
+# def get_ratio(mu_aug_ood, mu, sigma, f):
+#     ratio1 = ((mu_aug_ood-mu).abs()/(sigma+1e-8)).mean().item()
+#     distance = (mu_aug_ood-mu).abs().mean().item()
+#     sigma = sigma.mean().item()
+#     ratio2 = distance/sigma
+#     f.write("{},{},{},{}\n".format(distance,sigma,ratio2,ratio1))
 
 def train_pdeadd(dataloader_train, dataloader_train_diff, model,
                  optimizerDiff, optimizerC, label_smooth=0.1, attacker=None,
-                 device=None, visualize=False, epoch=None, save_path=None, use_gmm=True):
+                 device=None, use_gmm=True, save_path=None):
         
     print('use_gmm',use_gmm)
     
@@ -31,16 +32,15 @@ def train_pdeadd(dataloader_train, dataloader_train_diff, model,
 
     for (x, y), (x_ood, y_ood) in tqdm(zip(dataloader_train,dataloader_train_diff)):
         
-        if_visualize = (True*visualize) if batch_index==0 else (False*visualize)
         batch_metric = defaultdict(float)
         x, y = x.to(device), y.to(device)
         x_ood, y_ood = x_ood.to(device), y_ood.to(device)
 
+        if batch_index == 1:
+            vis(x, x_ood, save_path=save_path)
+        
         if (y - y_ood).sum().cpu().detach().item():
             raise
-        if attacker:
-            with ctx_noparamgrad_and_eval(model):
-                x_adv, _ = attacker.perturb(x, y,  visualize=if_visualize) 
         
         _ = model(x, use_diffusion = True)
         mus = model.mus
@@ -134,8 +134,6 @@ def train_standard(dataloader_train, model, optimizer,
         if attacker:
             with ctx_noparamgrad_and_eval(model):
                 x, _ = attacker.perturb(x, y, visualize=(True*visualize) if batch_index==0 else (False*visualize))
-        if augmentor:
-            x = augmentor.apply(x, visualize=(True*visualize) if batch_index==0 else (False*visualize))
         
         out = model(x)
         optimizer.zero_grad()

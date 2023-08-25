@@ -49,17 +49,15 @@ def get_logger_name(ckpt_path, load_ckpt, task, severity=None, threat=None):
 
 def get_desc(args):
     if args.protocol=='pdeadd':
-        desc = "{}_{}-{}_ntr{}_(C{}lr{}{}-D{}lr{})_e{}_b{}_aug-{}_augdiff-{}_atk-{}".format(
-                args.backbone, args.protocol, 
-                args.desc, args.npc_train,  
-                args.optimizerC, args.lrC, args.scheduler,
+        desc = "{}_{}-gmm{}_{}_(C{}lr{}{}-D{}lr{})_e{}_b{}_aug-{}_augdiff-{}_atk-{}".format(
+                args.backbone, args.protocol, args.use_gmm,
+                args.desc, args.optimizerC, args.lrC, args.scheduler,
                 args.optimizerDiff, args.lrDiff, 
                 args.epoch, args.batch_size, args.aug_train, args.aug_train_diff, args.atk_train)
     elif args.protocol == 'standard'  or 'fixdiff' in args.protocol :
-        desc = "{}_{}-{}_ntr{}_C{}lr{}{}_e{}_b{}_aug-{}_atk-{}".format(
-                args.backbone, args.protocol, 
-                args.desc, args.npc_train, 
-                args.optimizerC, args.lrC, args.scheduler,
+        desc = "{}_{}_{}_C{}lr{}{}_e{}_b{}_aug-{}_atk-{}".format(
+                args.backbone, args.protocol,
+                args.desc, args.optimizerC, args.lrC, args.scheduler,
                 args.epoch, args.batch_size, args.aug_train, args.atk_train)
     else:
         raise  
@@ -121,6 +119,7 @@ def verbose_and_save(logger, epoch, start_epoch, eval_per_epoch, start, train_me
         logger.info('Eval Nature Samples\t Acc: {:.2f}%, Loss: {:.2f}'.format(
                     eval_metric["nat"]['eval_acc'],eval_metric["nat"]['eval_loss']))     
         logger.info('Eval O.O.D. Samples\t Acc: {:.2f}%'.format(eval_metric["ood"]['eval_acc']))
+    logger.info("\n")
     # logger.info('Eval O.O.D. Samples\nwodiff\t Acc: {:.2f}%, Loss: {:.2f}\nendiff\t Acc: {:.2f}%, Loss: {:.2f}'.format(
     #     eval_metric["ood"]['eval_acc'],eval_metric["ood"]['eval_loss'],
     #     eval_metric["ood_diff"]['eval_acc'],eval_metric["ood_diff"]['eval_loss']))
@@ -145,14 +144,16 @@ def verbose_and_save(logger, epoch, start_epoch, eval_per_epoch, start, train_me
 
 
 def eval_epoch(epoch):
-    if epoch < 100:
-        eval_per_epoch = 20
-    elif epoch < 150:
-        eval_per_epoch = 10
+    if epoch < 10:
+        eval_per_epoch = 1
+    elif epoch < 100:
+        eval_per_epoch = 1
+    elif epoch < 160:
+        eval_per_epoch = 1
     else:
         eval_per_epoch = 1
     return eval_per_epoch
 
 def vis(x_ori, x_aug, save_path):
     x=torch.cat([x_ori[:8],x_aug[:8]])
-    save_image(x.cpu(), os.path.join(save_path,'ood.png'), nrow=8,padding=0, value_range=(0, 1), pad_value=0)
+    save_image(x.cpu(), os.path.join(save_path,'samples.png'), nrow=8,padding=0, value_range=(0, 1), pad_value=0)

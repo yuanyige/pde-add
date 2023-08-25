@@ -174,6 +174,10 @@ def pdeadd_resnet(name, num_classes=10, pretrained=False, device='cpu'):
         return ResNet(BasicBlock, [2, 2, 2, 2], num_classes=num_classes, device=device)
     elif name == 'resnet-34':
         return ResNet(BasicBlock, [3, 4, 6, 3], num_classes=num_classes, device=device)
+    # elif name == 'resnet-50':
+    #     return ResNet(Bottleneck, [3, 4, 6, 3], num_classes=num_classes, device=device)
+    # elif name == 'resnet-101':
+    #     return ResNet(Bottleneck, [3, 4, 23, 3], num_classes=num_classes, device=device)
     
     raise ValueError('Only resnet18, resnet34, resnet50 and resnet101 are supported!')
 
