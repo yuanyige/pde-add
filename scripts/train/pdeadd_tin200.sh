@@ -1,17 +1,18 @@
-CUDA_VISIBLE_DEVICES=5 \
+CUDA_VISIBLE_DEVICES=4 \
 python train.py \
---data pacs-art \
---data-diff pacs-cartoon \
+--data tin200 \
+--data-diff tin200 \
 --seed 3407 \
 --protocol pdeadd \
 --desc none \
 --backbone resnet-18 \
 --epoch 200 \
---save-dir save_pacs/art-cartoon \
+--save-dir save_tin200 \
 --npc-train all \
---lrC 0.015 \
---lrDiff 0.01 \
+--lrC 0.02 \
+--lrDiff 0.001 \
 --schedule cosanlr \
 --ls 0.1 \
+--use-gmm \
 --aug-train augmix-10-10 \
---aug-train-diff augmix-10-10
+--aug-train-diff augmix-10-10 

@@ -27,8 +27,8 @@ def parser_train():
     parser.add_argument('--num-workers', type=int, default=2) 
     
     # augmentation
-    parser.add_argument('--aug-train',  type=str, default="augmix", help='Data augmentation for training, replacing clean') 
-    parser.add_argument('--aug-train-diff',  type=str, default="augmix", help='Data augmentation for training') 
+    parser.add_argument('--aug-train',  type=str, default="none", help='Data augmentation for training, replacing clean') 
+    parser.add_argument('--aug-train-diff',  type=str, default="none", help='Data augmentation for training') 
 
     # attack
     parser.add_argument('--atk-train', type=str, choices=['fgsm', 'linf-pgd', 'fgm', 'l2-pgd', 'linf-df', 'l2-df', 'linf-apgd', 'l2-apgd', 'none'], 

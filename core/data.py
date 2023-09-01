@@ -50,7 +50,7 @@ class PairedDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        image = self.dasamplesta[index]
+        image = self.samples[index]
         if self.transform:
             image = self.transform(image)
         label = self.targets[index]
@@ -60,13 +60,16 @@ class PairedDataset(Dataset):
         return len(self.samples)
 
 def Balance(root, data1, data2, t1, t2):
-    def balance_classes(data1, data2):
-        if len(data1) < len(data2):
-            while len(data1) < len(data2):
-                data1.append(random.choice(data1))
-        elif len(data1) > len(data2):
-            while len(data2) < len(data1):
-                data2.append(random.choice(data2))
+    def balance_classes(d1, d2):
+        #print(len(d1),len(d2))
+        if len(d1) < len(d2):
+            while len(d1) < len(d2):
+                d1.append(random.choice(d1))
+        elif len(d1) > len(d2):
+            while len(d2) < len(d1):
+                d2.append(random.choice(d2))
+        #print(len(d1),len(d2))
+        return d1, d2
 
     # Load the datasets
     domain1 = datasets.ImageFolder(os.path.join(root, 'pacs', data1.split('-')[1]))
@@ -89,8 +92,8 @@ def Balance(root, data1, data2, t1, t2):
 
     # Balance the number of images in each class
     for label in range(len(domain1.classes)):
-        print('label',label)
-        balance_classes(data_dict1[label], data_dict2[label])
+        #print('label',label)
+        data_dict1[label],data_dict2[label]=balance_classes(data_dict1[label], data_dict2[label])
         balanced_data1.extend(data_dict1[label])
         balanced_data2.extend(data_dict2[label])
     #print('balanced_data1balanced_data1',balanced_data1)

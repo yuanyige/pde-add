@@ -51,7 +51,14 @@ def objective(trial=None):
     else:
         logger.info('\nOptuna number of trial: '+str(trial.number))
         logger.info('Optuna number of trial: '+str(trial.params))
-        
+
+    if args.protocol in ['standard','fixdiff']:
+        args.data_diff = None
+    elif args.protocol == 'pdeadd':
+        if args.data in ['cifar10','cifar100','tin200']:
+            args.data_diff = args.data
+    else:
+        raise
 
     # save args
     with open(os.path.join(args.save_dir, 'args.txt'), 'w') as f:
@@ -59,7 +66,6 @@ def objective(trial=None):
 
     # dataloaders
     if args.data in ['cifar10','cifar100','tin200'] :
-        args.data_diff = args.data
         ood_data = corruption_15
     elif 'pacs' in args.data:
         ood_data = pacs_4

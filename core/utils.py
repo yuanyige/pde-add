@@ -144,12 +144,12 @@ def verbose_and_save(logger, epoch, start_epoch, eval_per_epoch, start, train_me
 
 
 def eval_epoch(epoch):
-    if epoch < 10:
+    if epoch < 5:
         eval_per_epoch = 1
     elif epoch < 100:
-        eval_per_epoch = 1
+        eval_per_epoch = 20
     elif epoch < 160:
-        eval_per_epoch = 1
+        eval_per_epoch = 10
     else:
         eval_per_epoch = 1
     return eval_per_epoch
