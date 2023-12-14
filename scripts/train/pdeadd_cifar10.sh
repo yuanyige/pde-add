@@ -2,7 +2,6 @@ CUDA_VISIBLE_DEVICES=0 \
 python train.py \
 --data cifar10 \
 --data-diff cifar10 \
---seed 3407 \
 --protocol pdeadd \
 --desc none \
 --backbone resnet-18 \
