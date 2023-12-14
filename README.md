@@ -1,12 +1,11 @@
 # PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion
 
 > Yige Yuan, Bingbing Xu, Bo Lin, Liang Hou, Fei Sun, Huawei Shen, Xueqi Cheng
->
 > The 38th Annual AAAI Conference on Artificial Intelligence (AAAI), 2024
 
-This is a PyTorch implementation of [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/pdf/2305.15835.pdf) (PDE+).
+This is an official PyTorch implementation of paper [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/pdf/2305.15835.pdf).
 
-![PDE+](pic/model.png)
+![PDE+](pic/pdeadd.pdf)
 
 
 ## Training & Testing
