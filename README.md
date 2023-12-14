@@ -1,19 +1,25 @@
 # PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion
 
 > Yige Yuan, Bingbing Xu, Bo Lin, Liang Hou, Fei Sun, Huawei Shen, Xueqi Cheng
+> 
 > The 38th Annual AAAI Conference on Artificial Intelligence (AAAI), 2024
 
 This is an official PyTorch implementation of paper [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/pdf/2305.15835.pdf).
 
-![PDE+](pic/pdeadd.pdf)
+![PDE+](pic/pdeadd.jpg)
 
 
 ## Training & Testing
 
 All arguments are located in the parse.py file. You can create a script to specify the parameters, for example,
+
+you can run our PDE+ via
 ```
-bash ./scripts/train/pdeadd_cifar10.sh # run our PDE+
-bash ./scripts/train/std_cifar10.sh # run baseline
+bash ./scripts/train/pdeadd_cifar10.sh 
+```
+or you can run basic ERM via
+``````
+bash ./scripts/train/std_cifar10.sh 
 ```
 
 ## Reference
