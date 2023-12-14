@@ -6,7 +6,7 @@
 
 This is an official PyTorch implementation of paper [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/pdf/2305.15835.pdf).
 
-![PDE+](pic/pdeadd.jpg)
+![PDE+](pic/pdeadd.png)
 
 
 ## Training & Testing
