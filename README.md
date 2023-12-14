@@ -11,14 +11,14 @@ This is an official PyTorch implementation of paper [PDE+: Enhancing Generalizat
 
 ## Training & Testing
 
-All arguments are located in the parse.py file. You can create a script to specify the parameters, for example,
+All arguments are located in the parse.py file. You can create a script to specify the parameters.
 
-you can run our PDE+ via
+For example, you can run our PDE+ by using the following command:
 ```
 bash ./scripts/train/pdeadd_cifar10.sh 
 ```
-or you can run basic ERM via
-``````
+Or you can run the basic ERM by using the command:
+```
 bash ./scripts/train/std_cifar10.sh 
 ```
 
