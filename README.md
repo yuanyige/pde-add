@@ -11,7 +11,7 @@ This is an official PyTorch implementation of paper [PDE+: Enhancing Generalizat
 
 ## Training & Testing
 
-All arguments are located in the parse.py file. You can create a script to specify the parameters.
+All arguments are located in the **parse.py** file. You can create a script to specify the parameters.
 
 For example, you can run our PDE+ by using the following command:
 ```
@@ -21,6 +21,12 @@ Or you can run the basic ERM by using the command:
 ```
 bash ./scripts/train/std_cifar10.sh 
 ```
+
+## Full Results
+
+All detailed experimental results, formatted as CSV files, are available in the **results** directory
+
+![Results on Corruption Datasets](pic/results.png)
 
 ## Reference
 
