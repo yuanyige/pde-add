@@ -4,7 +4,7 @@
 > 
 > The 38th Annual AAAI Conference on Artificial Intelligence (AAAI), 2024
 
-This is an official PyTorch implementation of paper [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/pdf/2305.15835.pdf).
+This is an official PyTorch implementation of paper [PDE+: Enhancing Generalization via PDE with Adaptive Distributional Diffusion](https://arxiv.org/abs/2305.15835).
 
 ![PDE+](pic/pdeadd.png)
 
